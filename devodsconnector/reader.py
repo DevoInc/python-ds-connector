@@ -23,7 +23,7 @@ csv.field_size_limit(sys.maxsize)
 warnings.simplefilter('always', UserWarning)
 
 
-class API(object):
+class Reader(object):
 
     def __init__(self, profile='default', api_key=None, api_secret=None, end_point=None, oauth_token=None, jwt=None):
         self.profile = profile
@@ -298,7 +298,7 @@ class API(object):
 
         if (sample_size < 1) or (not isinstance(sample_size, int)):
             raise Exception('Sample size must be a positive int')
-            
+
         size_query = linq_query + ' group select count() as count'
 
         r = self.query(size_query,start,stop,output='list')
@@ -387,8 +387,3 @@ class API(object):
         """
 
         pass
-
-
-
-
-TESTING = 1

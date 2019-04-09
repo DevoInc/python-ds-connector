@@ -1,11 +1,11 @@
-# devodstoolkit
+# devodsconnector
 
 ## Installing
 
-The Devo DS Toolkit requires Python 3+
+The Devo DS Connector requires Python 3+
 
 ```
-pip install git+https://github.com/devods/devodstoolkit.git
+pip install git+https://github.com/devods/devodsconnector.git
 ```
 
 ## Usage
@@ -14,15 +14,15 @@ pip install git+https://github.com/devods/devodstoolkit.git
 
 ## Querying Devo
 
-### Creating an API object
+### Creating a Reader object
 
-To query Devo, create an `API` object found in [api.py](https://github.com/devods/devodstoolkit/blob/master/devodstoolkit/api.py)
+To query Devo, create a `Reader` object found in [api.py](https://github.com/devods/devodstoolkit/blob/master/devodstoolkit/api.py)
 
-Credentials must be specified when creating an API object in order to access the data in Devo.  In addition to credentials, an end point must be specified as well.  Credentials and end points can be specified in three ways
+Credentials must be specified when creating a Reader object in order to access the data in Devo.  In addition to credentials, an end point must be specified as well.  Credentials and end points can be specified in three ways
 
-1. API key and secret: `devo_api = devo.API(api_key={your api key}, api_secret={your api secret key}, end_point={your end point})`
-2. OAuth Token: `devo_api = devo.API(oauth_token={your oauth token}, end_point={your end point})`
-3. Profile: `devo_api = devo.API(profile={your profile})`
+1. API key and secret: `devo_reader = devo.Reader(api_key={your api key}, api_secret={your api secret key}, end_point={your end point})`
+2. OAuth Token: `devo_reader = devo.Reader(oauth_token={your oauth token}, end_point={your end point})`
+3. Profile: `devo_reader = devo.Reader(profile={your profile})`
 
 The API key and secret as well as the OAuth token can be found and generated from the Devo web UI in the Credentials section under the Administration tab.  These credentials are passed as strings.  A profile can be setup to store credential and end point information in one place.  See the section on credentials file for more information
 
@@ -31,7 +31,7 @@ for the EU is `'https://apiv2-eu.devo.com/search/query'`
 
 #### Methods
 
-`API.query(linq_query, start, stop=None, output='dict')`  
+`Reader.query(linq_query, start, stop=None, output='dict')`  
 
 `linq_query`: Linq query to run against Devo as a string
 
@@ -57,7 +57,7 @@ will return
  'url': 'https://us.devo.com/login'}
  ```
 
-`API.randomSample(linq_query,start,stop,sample_size)`
+`Reader.randomSample(linq_query,start,stop,sample_size)`
 
 Run a Linq query and return a random sample of the results as a `pandas.DataFrame`.  
 
@@ -68,14 +68,14 @@ Run a Linq query and return a random sample of the results as a `pandas.DataFram
 
 ## Loading Data into Devo
 
-To load data, create a `Loader` object found in [loader.py](https://github.com/devods/devodstoolkit/blob/master/devodstoolkit/loader.py)
+To load data, create a `Writer` object found in [loader.py](https://github.com/devods/devodstoolkit/blob/master/devodstoolkit/loader.py)
 
 Credentials must also be specified when creating a Loader object in order to send data into Devo.  In addition to credentials, a relay must be specified as well.  Credentials and relays can be specified in two ways
 
-1. Credentials: `devo_loader = devo.Loader(key={path_to_key}, crt={path_to_crt}, chain={path_to_chain}, relay={relay})`
-2. Profile: `devo_loader = devo.Loader(profile={your_profile})`
+1. Credentials: `devo_writer = devo.Writer(key={path_to_key}, crt={path_to_crt}, chain={path_to_chain}, relay={relay})`
+2. Profile: `devo_writer = devo.Writer(profile={your_profile})`
 
-The credentials of the loader are files and the paths to them are passed to the class as strings.  
+The credentials of the writer are files and the paths to them are passed to the class as strings.  
 
 
 
@@ -101,7 +101,7 @@ Warning: historical data should be sent into Devo in order
 
 #### Methods
 
-`Loader.load(data, tag, historical=True, ts_index=None, ts_name=None, columns=None)`
+`Writer.load(data, tag, historical=True, ts_index=None, ts_name=None, columns=None)`
 
 `data`: An iterable of lists or dictionaries.  Each element of the iterable should represent a row of the data to be uploaded.  If the iterable is of dictionaries, each dictionary should have the column names as keys and the data as values.
 
@@ -115,7 +115,7 @@ Warning: historical data should be sent into Devo in order
 
 `columns` If data is an iterable of lists, columns can optionally be specified to include column names in the generated Linq that parses the uploaded data.  See the section on accessing uploaded data
 
-`Loader.load_file(file_path, tag, historical=True, ts_index=None, ts_name=None, header=False, columns=None)`
+`Writer.load_file(file_path, tag, historical=True, ts_index=None, ts_name=None, header=False, columns=None)`
 
 `file_path`: path to a csv file containing the data to be uploaded as a string
 
@@ -127,7 +127,7 @@ Warning: historical data should be sent into Devo in order
 
 `ts_name` Can be used when both historical and header are True.  ts_name specifies the column in the csv containing the historical timestamp by column name.
 
-`Loader.load_df(df, tag, ts_name)`
+`Writer.load_df(df, tag, ts_name)`
 
 `df`: pandas DataFrame to be loaded into Devo
 
@@ -139,7 +139,7 @@ Note that load_df can only be used for historical data uploads.
 
 #### Accessing Uploaded Data
 
-The Loader sends data into Devo by inserting a header and all of the data of each input row into the message column of the Devo table.  The Loader provides a Linq query that can be used to parse this message column to extract the data loaded into Devo.  
+The Loader sends data into Devo by inserting a header and all of the data of each input row into the message column of the Devo table.  The Writer provides a Linq query that can be used to parse this message column to extract the data loaded into Devo.  
 
 ## Credential File
 
@@ -164,13 +164,13 @@ relay=usa.elb.relay.logtrust.net
 With the above stored in a text file located at `~/.devo_credentials` we can create API and Loader objects using the stored credentials
 
 ```
-import devodstoolkit as devo
+import devodsconnector as devo
 
-devo_api = devo.API(profile='example')
-devo_loader = devo.Loader(profile='example')
+devo_reader = devo.Reader(profile='example')
+devo_writer = devo.Writer(profile='example')
 ```
 
-It is not necessary to have credentials for both the API and the Loader in a profile.
+It is not necessary to have credentials for both the Reader and the Writer in a profile.
 If you would like to us an Oauth token, that can be included in the profile was well
 
 ```

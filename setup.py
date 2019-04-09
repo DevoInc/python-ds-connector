@@ -10,12 +10,12 @@ requires = [
 ]
 
 setup(
-    name='devodstoolkit',
-    version='0.2.5',
+    name='devodsconnector',
+    version='1.0.0',
     author='Nick Murphy',
     author_email='nick.murphy@devo.com',
     description='APIs for querying and loading data into Devo',
-    url='https://github.com/devods/devodstoolkit',
+    url='https://github.com/devods/devodsconnector.git',
     python_requires='>=3',
     install_requires=requires,
     packages=find_packages()

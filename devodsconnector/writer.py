@@ -11,7 +11,7 @@ from contextlib import contextmanager
 csv.field_size_limit(sys.maxsize)
 
 
-class Loader:
+class Writer:
 
     def __init__(self, profile='default', key=None, crt=None, chain=None, relay=None, timeout=2):
 
@@ -145,7 +145,7 @@ class Loader:
 
         if not historical:
             message_header = message_header_base
-        
+
         for row in data:
 
             if historical:
@@ -237,18 +237,3 @@ class Loader:
             linq += col_extract.format(i=i, col_name=col_name)
 
         print(linq)
-
-
-if __name__ == "__main__":
-    l = Loader()
-
-
-
-
-
-
-
-
-
-
-
