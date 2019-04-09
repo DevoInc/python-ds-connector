@@ -62,9 +62,9 @@ class Reader(object):
             self.oauth_token = profile_config.get('oauth_token')
 
         if self.end_point == 'USA':
-            self.end_point = 'https://api-us.logtrust.com/search/query'
+            self.end_point = 'https://apiv2-us.devo.com/search/query'
         if self.end_point == 'EU':
-            self.end_point = 'https://api-eu.logtrust.com/search/query'
+            self.end_point = 'https://apiv2-eu.devo.com/search/query'
 
     def query(self, linq_query, start, stop=None, output='dict'):
 
@@ -111,26 +111,9 @@ class Reader(object):
         stop: End time of the query in the same format as start.
         Set stop to None for a continuous query
         """
-        if linq_query.endswith('.linq'):
-            with open(linq_query, 'r') as f:
-                query_text = f.read()
-        else:
-            query_text = linq_query
-
 
         if stop is None:
             stream = True
-
-
-        r = self._make_request(query_text, start, stop, mode, stream, limit)
-
-        if stream:
-            return r.iter_lines()
-        else:
-            return r.text
-
-    def _make_request(self, query_text, start, stop, mode, stream, limit):
-
 
         start = self._to_unix(start)
         stop = self._to_unix(stop)
@@ -183,7 +166,7 @@ class Reader(object):
             stream=stream
         )
 
-        return r
+        return r.iter_lines() if stream else r.text
 
     @staticmethod
     def _null_decorator(f):
