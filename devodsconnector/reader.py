@@ -72,14 +72,15 @@ class Reader(object):
 
         valid_outputs = ('dict', 'list', 'namedtuple', 'dataframe')
         if output not in valid_outputs:
-            raise "output must be in {0}".format(valid_outputs)
+            raise Exception(f"output must be one of {valid_outputs}")
 
-        assert not (output=='dataframe' and stop is None), "DataFrame can't be build from continuous query"
+        if output=='dataframe' and stop is None:
+            raise Exception("DataFrame can't be build from continuous query")
 
         results = self._stream(linq_query,start,stop)
         cols = next(results)
 
-        return getattr(self, '_to_{0}'.format(output))(results,cols)
+        return getattr(self, f'_to_{output}')(results,cols)
 
     def _stream(self, linq_query, start, stop=None):
         """
@@ -91,17 +92,18 @@ class Reader(object):
 
         result = self.raw_query(linq_query, start, stop, mode = 'csv', stream = True)
         result = self._decode_results(result)
+        result = csv.reader(result)
 
-        reader = csv.reader(result)
-        cols = next(reader)
+        cols = next(result)
 
-        assert len(cols) == len(type_dict), "Duplicate column names encountered, custom columns must be named"
+        if len(cols) != len(type_dict):
+            raise Exception("Duplicate column names encountered, custom columns must be named")
 
         type_list = [type_dict[c] for c in cols]
 
         yield cols
 
-        for row in reader:
+        for row in results:
             yield [t(v) for t, v in zip(type_list, row)]
 
     def raw_query(self, linq_query, start, stop=None, mode='csv', stream=False, limit=None):
@@ -208,7 +210,7 @@ class Reader(object):
         response = self.raw_query(linq_query, start=start, stop=stop, mode='json/compact', limit=1)
 
         try:
-            data = json.loads(response)
+            data = json.loads(response, object_pairs_hook=self._check_duplicates)
             check_status(data)
         except ValueError:
             raise Exception('API V2 response error')
@@ -217,6 +219,17 @@ class Reader(object):
         type_dict = { k:self._map[v['type']] for k,v in col_data.items() }
 
         return type_dict
+
+    @staticmethod
+    def _check_duplicates(ordered_pairs):
+    """Reject duplicate keys."""
+    d = {}
+    for k, v in ordered_pairs:
+        if k in d:
+           raise Exception(f"Duplicate column name {k} encountered, custom columns must be name")
+        else:
+           d[k] = v
+    return d
 
     @staticmethod
     def _to_unix(date, milliseconds=False):
