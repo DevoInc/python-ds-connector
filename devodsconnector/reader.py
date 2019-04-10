@@ -25,7 +25,9 @@ warnings.simplefilter('always', UserWarning)
 
 class Reader(object):
 
-    def __init__(self, profile='default', api_key=None, api_secret=None, end_point=None, oauth_token=None, jwt=None):
+    def __init__(self, profile='default', api_key=None, api_secret=None,
+                       end_point=None, oauth_token=None, jwt=None):
+
         self.profile = profile
         self.api_key = api_key
         self.api_secret = api_secret
@@ -69,7 +71,8 @@ class Reader(object):
     def query(self, linq_query, start, stop=None, output='dict'):
 
         valid_outputs = ('dict', 'list', 'namedtuple', 'dataframe')
-        assert output in valid_outputs, "output must be in {0}".format(valid_outputs)
+        if output not in valid_outputs:
+            raise "output must be in {0}".format(valid_outputs)
 
         assert not (output=='dataframe' and stop is None), "DataFrame can't be build from continuous query"
 
@@ -86,7 +89,7 @@ class Reader(object):
 
         type_dict = self._get_types(linq_query, start)
 
-        result = self._query(linq_query, start, stop, mode = 'csv', stream = True)
+        result = self.raw_query(linq_query, start, stop, mode = 'csv', stream = True)
         result = self._decode_results(result)
 
         reader = csv.reader(result)
@@ -101,7 +104,7 @@ class Reader(object):
         for row in reader:
             yield [t(v) for t, v in zip(type_list, row)]
 
-    def _query(self, linq_query, start, stop=None, mode='csv', stream=False, limit=None):
+    def raw_query(self, linq_query, start, stop=None, mode='csv', stream=False, limit=None):
         """
         Run a link query and return the results
 
@@ -123,7 +126,7 @@ class Reader(object):
 
 
         body = json.dumps({
-            'query': query_text,
+            'query': linq_query,
             'from': start,
             'to': stop,
             'mode': {'type': mode},
@@ -189,7 +192,9 @@ class Reader(object):
                 'bool': lambda b: b == 'true'
                }
 
-        self._map = defaultdict(lambda: str, {t:self._null_decorator(f) for t,f in funcs.items()})
+        decorated_funcs = {t: self._null_decorator(f) for t, f in funcs.items()}
+        decorated_str = self._null_decorator(str)
+        self._map = defaultdict(lambda: decorated_str, decorated_funcs)
 
     def _get_types(self,linq_query,start):
         """
@@ -200,7 +205,7 @@ class Reader(object):
         stop = self._to_unix(start)
         start = stop - 1
 
-        response = self._query(linq_query, start=start, stop=stop, mode='json/compact', limit=1)
+        response = self.raw_query(linq_query, start=start, stop=stop, mode='json/compact', limit=1)
 
         try:
             data = json.loads(response)
@@ -209,7 +214,6 @@ class Reader(object):
             raise Exception('API V2 response error')
 
         col_data = data['object']['m']
-
         type_dict = { k:self._map[v['type']] for k,v in col_data.items() }
 
         return type_dict
