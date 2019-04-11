@@ -15,9 +15,7 @@ import numpy as np
 import pandas as pd
 from scipy.stats import norm
 
-
 from .error_checking import check_status
-
 
 csv.field_size_limit(sys.maxsize)
 warnings.simplefilter('always', UserWarning)
@@ -63,16 +61,16 @@ class Reader(object):
             self.end_point = profile_config.get('end_point')
             self.oauth_token = profile_config.get('oauth_token')
 
-        if self.end_point == 'USA':
-            self.end_point = 'https://apiv2-us.devo.com/search/query'
-        if self.end_point == 'EU':
-            self.end_point = 'https://apiv2-eu.devo.com/search/query'
+            if self.end_point == 'USA':
+                self.end_point = 'https://apiv2-us.devo.com/search/query'
+            elif self.end_point == 'EU':
+                self.end_point = 'https://apiv2-eu.devo.com/search/query'
 
     def query(self, linq_query, start, stop=None, output='dict'):
 
         valid_outputs = ('dict', 'list', 'namedtuple', 'dataframe')
         if output not in valid_outputs:
-            raise Exception(f"output must be one of {valid_outputs}")
+            raise Exception(f"Output must be one of {valid_outputs}")
 
         if output=='dataframe' and stop is None:
             raise Exception("DataFrame can't be build from continuous query")
@@ -97,13 +95,13 @@ class Reader(object):
         cols = next(result)
 
         if len(cols) != len(type_dict):
-            raise Exception("Duplicate column names encountered, custom columns must be named")
+            raise Exception("Duplicate column namea encountered, custom columns must be named")
 
         type_list = [type_dict[c] for c in cols]
 
         yield cols
 
-        for row in results:
+        for row in result:
             yield [t(v) for t, v in zip(type_list, row)]
 
     def raw_query(self, linq_query, start, stop=None, mode='csv', stream=False, limit=None):
@@ -210,26 +208,15 @@ class Reader(object):
         response = self.raw_query(linq_query, start=start, stop=stop, mode='json/compact', limit=1)
 
         try:
-            data = json.loads(response, object_pairs_hook=self._check_duplicates)
+            data = json.loads(response)
             check_status(data)
         except ValueError:
             raise Exception('API V2 response error')
 
         col_data = data['object']['m']
-        type_dict = { k:self._map[v['type']] for k,v in col_data.items() }
+        type_dict = { c:self._map[v['type']] for c,v in col_data.items() }
 
         return type_dict
-
-    @staticmethod
-    def _check_duplicates(ordered_pairs):
-    """Reject duplicate keys."""
-    d = {}
-    for k, v in ordered_pairs:
-        if k in d:
-           raise Exception(f"Duplicate column name {k} encountered, custom columns must be name")
-        else:
-           d[k] = v
-    return d
 
     @staticmethod
     def _to_unix(date, milliseconds=False):
@@ -247,7 +234,7 @@ class Reader(object):
             epoch = datetime.datetime.now().timestamp()
         elif type(date) == str:
             epoch = pd.to_datetime(date).timestamp()
-        elif type(date) == datetime.datetime:
+        elif isinstance(date, (pd.Timestamp, datetime.datetime)):
             epoch = date.replace(tzinfo=timezone.utc).timestamp()
         elif isinstance(date, (int,float)):
             epoch = date
@@ -263,7 +250,7 @@ class Reader(object):
     def _decode_results(r):
         r = iter(r)
 
-        # catch error not reported for json
+        # catch error not reported for json/compact
         first = next(r)
         try:
             data = json.loads(first)
@@ -299,7 +286,7 @@ class Reader(object):
         if (sample_size < 1) or (not isinstance(sample_size, int)):
             raise Exception('Sample size must be a positive int')
 
-        size_query = linq_query + ' group select count() as count'
+        size_query = f'{linq_query} group select count() as count'
 
         r = self.query(size_query,start,stop,output='list')
         table_size = next(r)[0]
@@ -311,7 +298,7 @@ class Reader(object):
 
         p = self._find_optimal_p(n=table_size,k=sample_size,threshold=0.99)
 
-        sample_query = linq_query + ' where simplify(float8(rand())) < {0} '.format(p)
+        sample_query = f'{linq_query} where simplify(float8(rand())) < {p}'
 
         while True:
             df = self.query(sample_query,start,stop,output='dataframe')
