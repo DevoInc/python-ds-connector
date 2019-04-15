@@ -374,3 +374,15 @@ class Reader(object):
         """
 
         pass
+
+    def population_sample(self, query, start, stop, column, sample_size):
+
+        population_query = f'{query} group by {column}'
+
+        df = self.randomSample(population_query, start, stop, sample_size)
+        population = df[column]
+        sample_set = ','.join(f'"{x}"' for x in population)
+
+        sample_query = f'{query} where str({column}) in {{{sample_set}}}'
+
+        return self.query(sample_query, start, stop, output='dataframe')
