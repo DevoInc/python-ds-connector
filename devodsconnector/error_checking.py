@@ -52,14 +52,18 @@ def process_500(data):
     error_pattern = r'malote\.{exception}: (.*?) \[MConnectionImpl\[address'
 
     match = re.search(exception_pattern, full_error)
-    exception_type = match.group(1)
+    try:
+        exception_type = match.group(1)
 
-    if exception_type == 'code.CodeParseException':
-        message = re.search(linq_pattern, full_error).group(1)
-    elif exception_type in ('base.StaticException', 'typing.TypingException'):
-        error_pattern = error_pattern.format(exception=exception_type)
-        message = re.search(error_pattern, full_error).group(1)
-    else:
-        message = exception_type
+        if exception_type == 'code.CodeParseException':
+            message = re.search(linq_pattern, full_error).group(1)
+        elif exception_type in ('base.StaticException', 'typing.TypingException'):
+            error_pattern = error_pattern.format(exception=exception_type)
+            message = re.search(error_pattern, full_error).group(1)
+        else:
+            message = exception_type
 
-    return message.replace('<?>@', 'Row,Column').strip()
+        return message.replace('<?>@', 'Row,Column').strip()
+
+    except:
+        return 'API V2 error'

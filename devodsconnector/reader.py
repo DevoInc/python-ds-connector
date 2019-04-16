@@ -15,9 +15,7 @@ import numpy as np
 import pandas as pd
 from scipy.stats import norm
 
-
 from .error_checking import check_status
-
 
 csv.field_size_limit(sys.maxsize)
 warnings.simplefilter('always', UserWarning)
@@ -25,7 +23,9 @@ warnings.simplefilter('always', UserWarning)
 
 class Reader(object):
 
-    def __init__(self, profile='default', api_key=None, api_secret=None, end_point=None, oauth_token=None, jwt=None):
+    def __init__(self, profile='default', api_key=None, api_secret=None,
+                       end_point=None, oauth_token=None, jwt=None):
+
         self.profile = profile
         self.api_key = api_key
         self.api_secret = api_secret
@@ -61,22 +61,24 @@ class Reader(object):
             self.end_point = profile_config.get('end_point')
             self.oauth_token = profile_config.get('oauth_token')
 
-        if self.end_point == 'USA':
-            self.end_point = 'https://api-us.logtrust.com/search/query'
-        if self.end_point == 'EU':
-            self.end_point = 'https://api-eu.logtrust.com/search/query'
+            if self.end_point == 'USA':
+                self.end_point = 'https://apiv2-us.devo.com/search/query'
+            elif self.end_point == 'EU':
+                self.end_point = 'https://apiv2-eu.devo.com/search/query'
 
     def query(self, linq_query, start, stop=None, output='dict'):
 
         valid_outputs = ('dict', 'list', 'namedtuple', 'dataframe')
-        assert output in valid_outputs, "output must be in {0}".format(valid_outputs)
+        if output not in valid_outputs:
+            raise Exception(f"Output must be one of {valid_outputs}")
 
-        assert not (output=='dataframe' and stop is None), "DataFrame can't be build from continuous query"
+        if output=='dataframe' and stop is None:
+            raise Exception("DataFrame can't be build from continuous query")
 
         results = self._stream(linq_query,start,stop)
         cols = next(results)
 
-        return getattr(self, '_to_{0}'.format(output))(results,cols)
+        return getattr(self, f'_to_{output}')(results,cols)
 
     def _stream(self, linq_query, start, stop=None):
         """
@@ -88,49 +90,27 @@ class Reader(object):
 
         result = self._query(linq_query, start, stop, mode = 'csv', stream = True)
         result = self._decode_results(result)
+        result = csv.reader(result)
 
-        reader = csv.reader(result)
-        cols = next(reader)
+        cols = next(result)
 
-        assert len(cols) == len(type_dict), "Duplicate column names encountered, custom columns must be named"
+        if len(cols) != len(type_dict):
+            raise Exception("Duplicate column namea encountered, custom columns must be named")
 
         type_list = [type_dict[c] for c in cols]
 
         yield cols
 
-        for row in reader:
+        for row in result:
             yield [t(v) for t, v in zip(type_list, row)]
 
     def _query(self, linq_query, start, stop=None, mode='csv', stream=False, limit=None):
         """
-        Run a link query and return the results
-
-        start: The start time for the query.  Can be a unix timestamp in seconds,
-        a python datetime object, or string in form 'YYYY-mm-dd'
-
-        stop: End time of the query in the same format as start.
-        Set stop to None for a continuous query
+        Method to interact with APIV2
         """
-        if linq_query.endswith('.linq'):
-            with open(linq_query, 'r') as f:
-                query_text = f.read()
-        else:
-            query_text = linq_query
-
 
         if stop is None:
             stream = True
-
-
-        r = self._make_request(query_text, start, stop, mode, stream, limit)
-
-        if stream:
-            return r.iter_lines()
-        else:
-            return r.text
-
-    def _make_request(self, query_text, start, stop, mode, stream, limit):
-
 
         start = self._to_unix(start)
         stop = self._to_unix(stop)
@@ -140,7 +120,7 @@ class Reader(object):
 
 
         body = json.dumps({
-            'query': query_text,
+            'query': linq_query,
             'from': start,
             'to': stop,
             'mode': {'type': mode},
@@ -183,7 +163,7 @@ class Reader(object):
             stream=stream
         )
 
-        return r
+        return r.iter_lines() if stream else r.text
 
     @staticmethod
     def _null_decorator(f):
@@ -206,7 +186,9 @@ class Reader(object):
                 'bool': lambda b: b == 'true'
                }
 
-        self._map = defaultdict(lambda: str, {t:self._null_decorator(f) for t,f in funcs.items()})
+        decorated_funcs = {t: self._null_decorator(f) for t, f in funcs.items()}
+        decorated_str = self._null_decorator(str)
+        self._map = defaultdict(lambda: decorated_str, decorated_funcs)
 
     def _get_types(self,linq_query,start):
         """
@@ -226,18 +208,18 @@ class Reader(object):
             raise Exception('API V2 response error')
 
         col_data = data['object']['m']
-
-        type_dict = { k:self._map[v['type']] for k,v in col_data.items() }
+        type_dict = { c:self._map[v['type']] for c,v in col_data.items() }
 
         return type_dict
 
     @staticmethod
     def _to_unix(date, milliseconds=False):
         """
-        Convert date to a unix timestamp in seconds
+        Convert date to a unix timestamp
 
-        date: A unix timestamp in second, a python datetime object,
-        or string in form 'YYYY-mm-dd'
+        date: A unix timestamp in second, a datetime object,
+        pandas.Timestamp object, or string to be parsed
+        by pandas.to_datetime
         """
 
         if date is None:
@@ -247,7 +229,7 @@ class Reader(object):
             epoch = datetime.datetime.now().timestamp()
         elif type(date) == str:
             epoch = pd.to_datetime(date).timestamp()
-        elif type(date) == datetime.datetime:
+        elif isinstance(date, (pd.Timestamp, datetime.datetime)):
             epoch = date.replace(tzinfo=timezone.utc).timestamp()
         elif isinstance(date, (int,float)):
             epoch = date
@@ -263,7 +245,7 @@ class Reader(object):
     def _decode_results(r):
         r = iter(r)
 
-        # catch error not reported for json
+        # catch error not reported for json/compact
         first = next(r)
         try:
             data = json.loads(first)
@@ -299,7 +281,7 @@ class Reader(object):
         if (sample_size < 1) or (not isinstance(sample_size, int)):
             raise Exception('Sample size must be a positive int')
 
-        size_query = linq_query + ' group select count() as count'
+        size_query = f'{linq_query} group select count() as count'
 
         r = self.query(size_query,start,stop,output='list')
         table_size = next(r)[0]
@@ -311,7 +293,7 @@ class Reader(object):
 
         p = self._find_optimal_p(n=table_size,k=sample_size,threshold=0.99)
 
-        sample_query = linq_query + ' where simplify(float8(rand())) < {0} '.format(p)
+        sample_query = f'{linq_query} where simplify(float8(rand())) < {p}'
 
         while True:
             df = self.query(sample_query,start,stop,output='dataframe')
@@ -348,8 +330,8 @@ class Reader(object):
         :param k: desired number of successes
         :param threshold: desired probability to achieve k successes
 
-        :return: probability of single trial that will yield
-                 k success with n trials with probability of threshold
+        :return: probability that a single trial that will yield
+                 at least k success with n trials with probability of threshold
 
         """
         p = k / n
@@ -363,27 +345,14 @@ class Reader(object):
 
         return p
 
-    def randomSampleColumn(self):
-        """
-        specify a linq query
-        and specify a column to sample by
-        and specify number of distinct values
+    def population_sample(self, query, start, stop, column, sample_size):
 
-        ie sample by phone number
+        population_query = f'{query} group by {column}'
 
-        find all distinct phone numbers that
-        meet the filter/where clause and time range
-        in the linq / start + stop times provided
-        (con't be con't query)
+        df = self.randomSample(population_query, start, stop, sample_size)
+        population = df[column]
+        sample_set = ','.join(f'"{x}"' for x in population)
 
-        random pick distinct phone numbers based on
-        specified distinc values
+        sample_query = f'{query} where str({column}) in {{{sample_set}}}'
 
-        run specified linq query but filter to only
-        rows that have selected phone numbers
-
-
-        :return:
-        """
-
-        pass
+        return self.query(sample_query, start, stop, output='dataframe')

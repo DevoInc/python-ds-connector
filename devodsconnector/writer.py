@@ -64,7 +64,8 @@ class Writer:
         self.sock.close()
         self.sock = None
 
-    def load_file(self, file_path, tag, historical=True, ts_index=None, ts_name=None, header=False, columns=None):
+    def load_file(self, file_path, tag, historical=True, ts_index=None,
+                        ts_name=None, header=False, columns=None, linq_func=print):
 
         with self._connect_socket() as _, open(file_path, 'r') as f:
             data = csv.reader(f)
@@ -87,9 +88,12 @@ class Writer:
 
             self._load(data, tag, historical, ts_index, chunk_size)
 
-        self._build_linq(tag, num_cols, columns)
+        if linq_func is not None:
+            linq = self._build_linq(tag, num_cols, columns)
+            return linq_func(linq)
 
-    def load(self, data, tag, historical=True, ts_index=None, ts_name=None, columns=None):
+    def load(self, data, tag, historical=True, ts_index=None,
+                   ts_name=None, columns=None, linq_func=print):
 
         data = iter(data)
         first = next(data)
@@ -117,27 +121,17 @@ class Writer:
         with self._connect_socket() as _:
             self._load(data, tag, historical, ts_index, chunk_size)
 
-        self._build_linq(tag, num_cols, columns)
+        if linq_func is not None:
+            linq = self._build_linq(tag, num_cols, columns)
+            return linq_func(linq)
 
-    def load_df(self, df, tag, ts_name):
-
-        columns = list(df.columns)
-        columns.remove(ts_name)
-        num_cols = len(columns)
+    def load_df(self, df, tag, ts_name, linq_func=print):
 
         data = df.to_dict(orient='records')
-        self.load(data, tag, historical=True, ts_name=ts_name)
-        self._build_linq(tag, num_cols, columns)
+        return self.load(data, tag, historical=True, ts_name=ts_name, linq_func=linq_func)
+
 
     def _load(self, data, tag, historical, ts_index=None, chunk_size=50):
-        """
-
-        :param data: iterable of either lists
-        :param tag:
-        :param historical:
-        :param ts_index:
-        :return:
-        """
 
         message_header_base = self._make_message_header(tag, historical)
         counter = 0
@@ -236,4 +230,4 @@ class Writer:
         for i, col_name in enumerate(columns):
             linq += col_extract.format(i=i, col_name=col_name)
 
-        print(linq)
+        return linq
