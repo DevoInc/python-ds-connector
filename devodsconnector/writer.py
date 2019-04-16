@@ -90,7 +90,7 @@ class Writer:
 
         if linq_func is not None:
             linq = self._build_linq(tag, num_cols, columns)
-            linq_func(linq)
+            return linq_func(linq)
 
     def load(self, data, tag, historical=True, ts_index=None,
                    ts_name=None, columns=None, linq_func=print):
@@ -123,16 +123,12 @@ class Writer:
 
         if linq_func is not None:
             linq = self._build_linq(tag, num_cols, columns)
-            linq_func(linq)
+            return linq_func(linq)
 
     def load_df(self, df, tag, ts_name, linq_func=print):
 
-        columns = list(df.columns)
-        columns.remove(ts_name)
-        num_cols = len(columns)
-
         data = df.to_dict(orient='records')
-        self.load(data, tag, historical=True, ts_name=ts_name, linq_func=linq_func)
+        return self.load(data, tag, historical=True, ts_name=ts_name, linq_func=linq_func)
 
 
     def _load(self, data, tag, historical, ts_index=None, chunk_size=50):
