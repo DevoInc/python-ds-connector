@@ -132,14 +132,6 @@ class Writer:
 
 
     def _load(self, data, tag, historical, ts_index=None, chunk_size=50):
-        """
-
-        :param data: iterable of either lists
-        :param tag:
-        :param historical:
-        :param ts_index:
-        :return:
-        """
 
         message_header_base = self._make_message_header(tag, historical)
         counter = 0

@@ -88,7 +88,7 @@ class Reader(object):
 
         type_dict = self._get_types(linq_query, start)
 
-        result = self.raw_query(linq_query, start, stop, mode = 'csv', stream = True)
+        result = self._query(linq_query, start, stop, mode = 'csv', stream = True)
         result = self._decode_results(result)
         result = csv.reader(result)
 
@@ -104,15 +104,9 @@ class Reader(object):
         for row in result:
             yield [t(v) for t, v in zip(type_list, row)]
 
-    def raw_query(self, linq_query, start, stop=None, mode='csv', stream=False, limit=None):
+    def _query(self, linq_query, start, stop=None, mode='csv', stream=False, limit=None):
         """
-        Run a link query and return the results
-
-        start: The start time for the query.  Can be a unix timestamp in seconds,
-        a python datetime object, or string in form 'YYYY-mm-dd'
-
-        stop: End time of the query in the same format as start.
-        Set stop to None for a continuous query
+        Method to interact with APIV2
         """
 
         if stop is None:
@@ -205,7 +199,7 @@ class Reader(object):
         stop = self._to_unix(start)
         start = stop - 1
 
-        response = self.raw_query(linq_query, start=start, stop=stop, mode='json/compact', limit=1)
+        response = self._query(linq_query, start=start, stop=stop, mode='json/compact', limit=1)
 
         try:
             data = json.loads(response)
@@ -221,10 +215,11 @@ class Reader(object):
     @staticmethod
     def _to_unix(date, milliseconds=False):
         """
-        Convert date to a unix timestamp in seconds
+        Convert date to a unix timestamp
 
-        date: A unix timestamp in second, a python datetime object,
-        or string in form 'YYYY-mm-dd'
+        date: A unix timestamp in second, a datetime object,
+        pandas.Timestamp object, or string to be parsed
+        by pandas.to_datetime
         """
 
         if date is None:
@@ -335,8 +330,8 @@ class Reader(object):
         :param k: desired number of successes
         :param threshold: desired probability to achieve k successes
 
-        :return: probability of single trial that will yield
-                 k success with n trials with probability of threshold
+        :return: probability that a single trial that will yield
+                 at least k success with n trials with probability of threshold
 
         """
         p = k / n
@@ -349,31 +344,6 @@ class Reader(object):
                 p = min(1.001*p, 1)
 
         return p
-
-    def randomSampleColumn(self):
-        """
-        specify a linq query
-        and specify a column to sample by
-        and specify number of distinct values
-
-        ie sample by phone number
-
-        find all distinct phone numbers that
-        meet the filter/where clause and time range
-        in the linq / start + stop times provided
-        (con't be con't query)
-
-        random pick distinct phone numbers based on
-        specified distinc values
-
-        run specified linq query but filter to only
-        rows that have selected phone numbers
-
-
-        :return:
-        """
-
-        pass
 
     def population_sample(self, query, start, stop, column, sample_size):
 
