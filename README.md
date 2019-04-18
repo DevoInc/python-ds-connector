@@ -1,3 +1,6 @@
+[![LICENSE](https://img.shields.io/dub/l/vibe-d.svg)](https://github.com/devods/devodsconnector/blob/master/LICENSE)
+![python](https://img.shields.io/badge/python-3+-blue.svg)
+![version](https://img.shields.io/badge/version-1.0.0-blue.svg)
 # devodsconnector
 
 ## Installing
@@ -10,13 +13,13 @@ pip install git+https://github.com/devods/devodsconnector.git
 
 ## Usage
 
-`import devodstoolkit as devo`
+`import devodsconnector as devo`
 
 ## Querying Devo
 
 ### Creating a Reader object
 
-To query Devo, create a `Reader` object found in [api.py](https://github.com/devods/devodstoolkit/blob/master/devodstoolkit/api.py)
+To query Devo, create a `Reader` object found in [reader.py](https://github.com/devods/devodsconnector/blob/master/devodsconnector/reader.py)
 
 Credentials must be specified when creating a Reader object in order to access the data in Devo.  In addition to credentials, an end point must be specified as well.  Credentials and end points can be specified in three ways
 
@@ -47,17 +50,19 @@ linq_query = '''
 from siem.logtrust.web.activity
 select eventdate, userid, url'''  
 
-results = devo_api.query(linq_query, start='2018-12-01', stop='2018-12-02')
+results = devo_api.query(linq_query, start='2018-12-01', stop='2018-12-02', output='dict')
 next(results)
 ```
 will return
 ```
-{'eventdate': datetime.datetime(2018, 12, 1, 19, 27, 41, 817000),
- 'userid': 'dd10c103-020d-4d7b-b018-106d67819afd',
- 'url': 'https://us.devo.com/login'}
+{
+  'eventdate': datetime.datetime(2018, 12, 1, 19, 27, 41, 817000),
+  'userid': 'dd10c103-020d-4d7b-b018-106d67819afd',
+  'url': 'https://us.devo.com/login'
+}
  ```
 
-`Reader.randomSample(linq_query,start,stop,sample_size)`
+`Reader.randomSample(linq_query, start, stop, sample_size)`
 
 Run a Linq query and return a random sample of the results as a `pandas.DataFrame`.  
 
@@ -65,10 +70,45 @@ Run a Linq query and return a random sample of the results as a `pandas.DataFram
 
 `sample_size`: The number of rows to be returned specified as an int
 
+`Reader.population_sample(linq_query, start, stop, column, sample_size)`
+
+Run a Linq query and return all the rows for a random subset of a population. For example   
+
+`linq_query`, `start`, and `stop` are all specified in the same way as the `randomSample` method above. Similar to `randomSample`, `population_sample` only returns dataframes and hence `stop` must be specified.
+
+`column`: Column name of the population to sample
+
+`sample_size`: Size of the subset of the population to sample with
+
+For example, the code below will return the all of the data for three randomly selected userids.
+
+```
+linq_query = '''
+from siem.logtrust.web.activity
+select eventdate, userid, responseLength, responseTime
+'''
+
+sample_df = reader.population_sample(
+  linq_query, start='2019-01', stop='2019-02',
+  column='userid', sample_size=3)
+```
+We can verify that there are three distinct userids in the data. 
+
+```
+sample_df.userid.value_counts()
+
+400d338d-c9a6-4930-90a5-357937f3e735    39346
+988409ce-3955-44a8-bcbb-b613bc8d9f8e    26222
+7de03c62-85fb-44b9-928c-ea40cf29872d     1068
+Name: userid, dtype: int64
+```
+
+
+
 
 ## Loading Data into Devo
 
-To load data, create a `Writer` object found in [loader.py](https://github.com/devods/devodstoolkit/blob/master/devodstoolkit/loader.py)
+To load data, create a `Writer` object found in [writer.py](https://github.com/devods/devodsconnector/blob/master/devodsconnector/writer.py)
 
 Credentials must also be specified when creating a Loader object in order to send data into Devo.  In addition to credentials, a relay must be specified as well.  Credentials and relays can be specified in two ways
 
