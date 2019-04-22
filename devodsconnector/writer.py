@@ -86,11 +86,15 @@ class Writer:
             else:
                 f.seek(0)
 
+            if linq_func is not None:
+                linq = self._build_linq(tag, num_cols, columns)
+                linq_output = linq_func(linq)
+            else:
+                linq_output = None
+
             self._load(data, tag, historical, ts_index, chunk_size)
 
-        if linq_func is not None:
-            linq = self._build_linq(tag, num_cols, columns)
-            return linq_func(linq)
+        return linq_output
 
     def load(self, data, tag, historical=True, ts_index=None,
                    ts_name=None, columns=None, linq_func=print):
@@ -118,12 +122,18 @@ class Writer:
                 columns = names
             data = self._process_mapping(data, first, names)
 
+        if linq_func is not None:
+            linq = self._build_linq(tag, num_cols, columns)
+            linq_output = linq_func(linq)
+        else:
+            linq_output = None
+
         with self._connect_socket() as _:
             self._load(data, tag, historical, ts_index, chunk_size)
 
-        if linq_func is not None:
-            linq = self._build_linq(tag, num_cols, columns)
-            return linq_func(linq)
+        return linq_output
+
+
 
     def load_df(self, df, tag, ts_name, linq_func=print):
 
