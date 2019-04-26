@@ -6,7 +6,8 @@ requires = [
     'numpy>=1.15.1',
     'pandas>=0.23.4',
     'requests>=2.19.1',
-    'scipy>=1.1.0'
+    'scipy>=1.1.0',
+    'devo-sdk'
 ]
 
 setup(
