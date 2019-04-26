@@ -15,6 +15,8 @@ import numpy as np
 import pandas as pd
 from scipy.stats import norm
 
+from devo.api import Client
+
 from .error_checking import check_status
 
 csv.field_size_limit(sys.maxsize)
@@ -40,6 +42,10 @@ class Reader(object):
             raise Exception('End point and either API keys or OAuth Token must be specified or in ~/.devo_credentials')
 
         self._make_type_map()
+
+        self.client = Client(key=self.api_key,secret=self.api_secret,
+                             token=self.oauth_token,jwt=self.jwt,
+                             url=self.end_point)
 
     def _read_profile(self):
         """
@@ -86,7 +92,7 @@ class Reader(object):
         types
         """
 
-        type_dict = self._get_types(linq_query, start)
+        type_dict = self._get_types(linq_query, start,stop)
 
         result = self._query(linq_query, start, stop, mode = 'csv', stream = True)
         result = self._decode_results(result)
@@ -105,6 +111,18 @@ class Reader(object):
             yield [t(v) for t, v in zip(type_list, row)]
 
     def _query(self, linq_query, start, stop=None, mode='csv', stream=False, limit=None):
+
+        dates = {'from': start, 'to':stop}
+
+        response = self.client.query(query=linq_query,
+                                     response=mode,
+                                     dates=dates,
+                                     stream=stream)
+
+        return response
+
+
+    def _origional_query(self, linq_query, start, stop=None, mode='csv', stream=False, limit=None):
         """
         Method to interact with APIV2
         """
@@ -190,14 +208,16 @@ class Reader(object):
         decorated_str = self._null_decorator(str)
         self._map = defaultdict(lambda: decorated_str, decorated_funcs)
 
-    def _get_types(self,linq_query,start):
+    def _get_types(self,linq_query,start,stop):
         """
         Gets types of each column of submitted
         """
 
+        #### use input start/stop for python-skd
+
         # so we don't have  stop ts in future as required by API V2
-        stop = self._to_unix(start)
-        start = stop - 1
+        # stop = self._to_unix(start)
+        # start = stop - 1
 
         response = self._query(linq_query, start=start, stop=stop, mode='json/compact', limit=1)
 
