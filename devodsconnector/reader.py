@@ -46,9 +46,9 @@ class Reader(object):
 
         self._make_type_map()
 
-        self.client = Client(key=self.api_key,secret=self.api_secret,
-                             token=self.oauth_token,jwt=self.jwt,
-                             url=self.end_point)
+        self.client = Client(auth=dict(key=self.api_key,secret=self.api_secret,
+                                       token=self.oauth_token,jwt=self.jwt),
+                             address=self.end_point)
 
     def _read_profile(self):
         """
@@ -118,11 +118,11 @@ class Reader(object):
         stop = self._to_unix(stop)
 
         dates = {'from': start, 'to':stop}
+        self.client.config.response = mode
+        self.client.config.stream = stream
 
         response = self.client.query(query=linq_query,
-                                     response=mode,
                                      dates=dates,
-                                     stream=stream,
                                      limit=limit)
 
         return response
