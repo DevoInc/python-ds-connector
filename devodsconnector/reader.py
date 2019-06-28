@@ -1,15 +1,12 @@
 import os
 import sys
-import re
 import configparser
 import datetime
 from datetime import timezone
 import json
-import hashlib
-import hmac
-import requests
 import csv
 import warnings
+import pathlib
 from collections import namedtuple, defaultdict
 import numpy as np
 import pandas as pd
@@ -26,7 +23,7 @@ warnings.simplefilter('always', UserWarning)
 class Reader(object):
 
     def __init__(self, profile='default', api_key=None, api_secret=None,
-                       end_point=None, oauth_token=None, jwt=None):
+                       end_point=None, oauth_token=None, jwt=None, credential_path=None):
 
         self.profile = profile
         self.api_key = api_key
@@ -34,6 +31,12 @@ class Reader(object):
         self.end_point = end_point
         self.oauth_token = oauth_token
         self.jwt = jwt
+
+        if credential_path:
+            self.credential_path = pathlib.Path(credential_path).expanduser()
+        else:
+            self.credential_path = pathlib.Path('~/.devo_credentials').expanduser()
+
 
         if not (self.end_point and (self.oauth_token or self.jwt or (self.api_key and self.api_secret))):
             self._read_profile()
@@ -56,8 +59,7 @@ class Reader(object):
         """
 
         config = configparser.ConfigParser()
-        credential_path = os.path.join(os.path.expanduser('~'), '.devo_credentials')
-        config.read(credential_path)
+        config.read(self.credential_path)
 
         if self.profile in config:
             profile_config = config[self.profile]
@@ -86,13 +88,13 @@ class Reader(object):
 
         return getattr(self, f'_to_{output}')(results,cols)
 
-    def _stream(self, linq_query, start, stop=None):
+    def _stream(self, linq_query, start, stop):
         """
         yields columns names then rows in lists with converted
         types
         """
 
-        type_dict = self._get_types(linq_query, start,stop)
+        type_dict = self._get_types(linq_query, start)
 
         result = self._query(linq_query, start, stop, mode = 'csv', stream = True)
         result = self._decode_results(result)
@@ -101,7 +103,7 @@ class Reader(object):
         cols = next(result)
 
         if len(cols) != len(type_dict):
-            raise Exception("Duplicate column namea encountered, custom columns must be named")
+            raise Exception("Duplicate column names encountered, custom columns must be named")
 
         type_list = [type_dict[c] for c in cols]
 
@@ -112,76 +114,19 @@ class Reader(object):
 
     def _query(self, linq_query, start, stop=None, mode='csv', stream=False, limit=None):
 
+        start = self._to_unix(start)
+        stop = self._to_unix(stop)
+
         dates = {'from': start, 'to':stop}
 
         response = self.client.query(query=linq_query,
                                      response=mode,
                                      dates=dates,
-                                     stream=stream)
+                                     stream=stream,
+                                     limit=limit)
 
         return response
 
-
-    def _origional_query(self, linq_query, start, stop=None, mode='csv', stream=False, limit=None):
-        """
-        Method to interact with APIV2
-        """
-
-        if stop is None:
-            stream = True
-
-        start = self._to_unix(start)
-        stop = self._to_unix(stop)
-
-        ts = self._to_unix('now', milliseconds=True)
-        ts = str(ts)
-
-
-        body = json.dumps({
-            'query': linq_query,
-            'from': start,
-            'to': stop,
-            'mode': {'type': mode},
-            'limit': limit
-        })
-
-        if self.api_key and self.api_secret:
-
-            msg = self.api_key + body + ts
-            sig = hmac.new(self.api_secret.encode(),
-                           msg.encode(),
-                           hashlib.sha256).hexdigest()
-
-            headers = {
-                'Content-Type': 'application/json',
-                'x-logtrust-apikey': self.api_key,
-                'x-logtrust-sign': sig,
-                'x-logtrust-timestamp': ts
-            }
-
-        elif self.oauth_token:
-
-            headers = {
-                'Content-Type': 'application/json',
-                'Authorization': 'Bearer ' + self.oauth_token}
-
-        elif self.jwt:
-
-            headers = {
-                'Content-Type': 'application/json',
-                'Authorization': 'jwt ' + self.jwt}
-
-        else:
-            raise Exception('No credentials found')
-
-        r = requests.post(
-            self.end_point,
-            data=body,
-            headers=headers,
-            stream=stream
-        )
-
-        return r.iter_lines() if stream else r.text
 
     @staticmethod
     def _null_decorator(f):
@@ -208,16 +153,14 @@ class Reader(object):
         decorated_str = self._null_decorator(str)
         self._map = defaultdict(lambda: decorated_str, decorated_funcs)
 
-    def _get_types(self,linq_query,start,stop):
+    def _get_types(self,linq_query,start):
         """
         Gets types of each column of submitted
         """
 
-        #### use input start/stop for python-skd
-
         # so we don't have  stop ts in future as required by API V2
-        # stop = self._to_unix(start)
-        # start = stop - 1
+        stop = self._to_unix(start)
+        start = stop - 1
 
         response = self._query(linq_query, start=start, stop=stop, mode='json/compact', limit=1)
 
