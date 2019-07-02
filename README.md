@@ -1,11 +1,11 @@
 [![LICENSE](https://img.shields.io/dub/l/vibe-d.svg)](https://github.com/devods/devodsconnector/blob/master/LICENSE)
-![python](https://img.shields.io/badge/python-3+-blue.svg)
+![python](https://img.shields.io/badge/python-3.5|3.6|3.7-blue.svg)
 ![version](https://img.shields.io/badge/version-1.0.0-blue.svg)
 # devodsconnector
 
 ## Installing
 
-The Devo DS Connector requires Python 3+
+The Devo DS Connector requires Python 3.5+
 
 ```
 pip install git+https://github.com/devods/devodsconnector.git
@@ -13,7 +13,7 @@ pip install git+https://github.com/devods/devodsconnector.git
 
 ## Usage
 
-`import devodsconnector as devo`
+`import devodsconnector as ds`
 
 ## Querying Devo
 
@@ -23,9 +23,9 @@ To query Devo, create a `Reader` object found in [reader.py](https://github.com/
 
 Credentials must be specified when creating a `Reader` object in order to access the data in Devo.  In addition to credentials, an end point must be specified as well.  Credentials and end points can be specified in three ways:
 
-1. API key and secret: `devo_reader = devo.Reader(api_key={your api key}, api_secret={your api secret key}, end_point={your end point})`
-2. OAuth Token: `devo_reader = devo.Reader(oauth_token={your oauth token}, end_point={your end point})`
-3. Profile: `devo_reader = devo.Reader(profile={your profile})`
+1. API key and secret: `devo_reader = ds.Reader(api_key={your api key}, api_secret={your api secret key}, end_point={your end point})`
+2. OAuth Token: `devo_reader = ds.Reader(oauth_token={your oauth token}, end_point={your end point})`
+3. Profile: `devo_reader = ds.Reader(profile={your profile})`
 
 The API key and secret as well as the OAuth token can be found and generated from the Devo web UI in the Credentials section under the Administration tab.  These credentials are passed as strings.  A profile can be setup to store credential and end point information in one place.  See the section on credentials file for more information.
 
@@ -112,8 +112,8 @@ To load data, create a `Writer` object found in [writer.py](https://github.com/d
 
 Credentials must also be specified when creating a `Writer` object in order to send data into Devo.  In addition to credentials, a relay must be specified as well.  Credentials and relays can be specified in two ways:
 
-1. Credentials: `devo_writer = devo.Writer(key={path_to_key}, crt={path_to_crt}, chain={path_to_chain}, relay={relay})`
-2. Profile: `devo_writer = devo.Writer(profile={your_profile})`
+1. Credentials: `devo_writer = ds.Writer(key={path_to_key}, crt={path_to_crt}, chain={path_to_chain}, relay={relay})`
+2. Profile: `devo_writer = ds.Writer(profile={your_profile})`
 
 The credentials of the writer are files and the paths to them are passed to the class as strings.  
 
@@ -210,10 +210,10 @@ relay=usa.elb.relay.logtrust.net
 With the above stored in a text file located at `~/.devo_credentials` we can create `Reader` and `Writer` objects using the stored credentials
 
 ```
-import devodsconnector as devo
+import devodsconnector as ds
 
-devo_reader = devo.Reader(profile='example')
-devo_writer = devo.Writer(profile='example')
+devo_reader = ds.Reader(profile='example')
+devo_writer = ds.Writer(profile='example')
 ```
 
 It is not necessary to have credentials for both the `Reader` and the `Writer` in a profile.

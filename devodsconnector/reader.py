@@ -1,19 +1,18 @@
 import os
 import sys
-import re
 import configparser
 import datetime
 from datetime import timezone
 import json
-import hashlib
-import hmac
-import requests
 import csv
 import warnings
+import pathlib
 from collections import namedtuple, defaultdict
 import numpy as np
 import pandas as pd
 from scipy.stats import norm
+
+from devo.api import Client
 
 from .error_checking import check_status
 
@@ -24,7 +23,8 @@ warnings.simplefilter('always', UserWarning)
 class Reader(object):
 
     def __init__(self, profile='default', api_key=None, api_secret=None,
-                       end_point=None, oauth_token=None, jwt=None):
+                       end_point=None, oauth_token=None, jwt=None,
+                       credential_path='~/.devo_credentials'):
 
         self.profile = profile
         self.api_key = api_key
@@ -33,6 +33,8 @@ class Reader(object):
         self.oauth_token = oauth_token
         self.jwt = jwt
 
+        self.credential_path = pathlib.Path(credential_path).expanduser()
+
         if not (self.end_point and (self.oauth_token or self.jwt or (self.api_key and self.api_secret))):
             self._read_profile()
 
@@ -40,6 +42,10 @@ class Reader(object):
             raise Exception('End point and either API keys or OAuth Token must be specified or in ~/.devo_credentials')
 
         self._make_type_map()
+
+        self.client = Client(auth=dict(key=self.api_key,secret=self.api_secret,
+                                       token=self.oauth_token,jwt=self.jwt),
+                             address=self.end_point)
 
     def _read_profile(self):
         """
@@ -50,8 +56,7 @@ class Reader(object):
         """
 
         config = configparser.ConfigParser()
-        credential_path = os.path.join(os.path.expanduser('~'), '.devo_credentials')
-        config.read(credential_path)
+        config.read(self.credential_path)
 
         if self.profile in config:
             profile_config = config[self.profile]
@@ -80,7 +85,7 @@ class Reader(object):
 
         return getattr(self, f'_to_{output}')(results,cols)
 
-    def _stream(self, linq_query, start, stop=None):
+    def _stream(self, linq_query, start, stop):
         """
         yields columns names then rows in lists with converted
         types
@@ -95,7 +100,7 @@ class Reader(object):
         cols = next(result)
 
         if len(cols) != len(type_dict):
-            raise Exception("Duplicate column namea encountered, custom columns must be named")
+            raise Exception("Duplicate column names encountered, custom columns must be named")
 
         type_list = [type_dict[c] for c in cols]
 
@@ -105,65 +110,20 @@ class Reader(object):
             yield [t(v) for t, v in zip(type_list, row)]
 
     def _query(self, linq_query, start, stop=None, mode='csv', stream=False, limit=None):
-        """
-        Method to interact with APIV2
-        """
-
-        if stop is None:
-            stream = True
 
         start = self._to_unix(start)
         stop = self._to_unix(stop)
 
-        ts = self._to_unix('now', milliseconds=True)
-        ts = str(ts)
+        dates = {'from': start, 'to':stop}
+        self.client.config.response = mode
+        self.client.config.stream = stream
 
+        response = self.client.query(query=linq_query,
+                                     dates=dates,
+                                     limit=limit)
 
-        body = json.dumps({
-            'query': linq_query,
-            'from': start,
-            'to': stop,
-            'mode': {'type': mode},
-            'limit': limit
-        })
+        return response
 
-        if self.api_key and self.api_secret:
-
-            msg = self.api_key + body + ts
-            sig = hmac.new(self.api_secret.encode(),
-                           msg.encode(),
-                           hashlib.sha256).hexdigest()
-
-            headers = {
-                'Content-Type': 'application/json',
-                'x-logtrust-apikey': self.api_key,
-                'x-logtrust-sign': sig,
-                'x-logtrust-timestamp': ts
-            }
-
-        elif self.oauth_token:
-
-            headers = {
-                'Content-Type': 'application/json',
-                'Authorization': 'Bearer ' + self.oauth_token}
-
-        elif self.jwt:
-
-            headers = {
-                'Content-Type': 'application/json',
-                'Authorization': 'jwt ' + self.jwt}
-
-        else:
-            raise Exception('No credentials found')
-
-        r = requests.post(
-            self.end_point,
-            data=body,
-            headers=headers,
-            stream=stream
-        )
-
-        return r.iter_lines() if stream else r.text
 
     @staticmethod
     def _null_decorator(f):
