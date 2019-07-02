@@ -27,15 +27,11 @@ class Writer:
 
         self.credential_path = pathlib.Path(credential_path).expanduser()
 
-
         if not all([key, crt, chain, relay]):
             self._read_profile()
 
         if not all([self.key, self.crt, self.chain, self.relay]):
             raise Exception('Credentials and relay must be specified or in ~/.devo_credentials')
-
-        # engine_config = SenderConfigSSL(address=self.relay, port=self.port,
-        #                                 key=self.key, cert=self.crt,chain=self.chain)
 
         self.sender = Sender(dict(address=self.relay, port=self.port,
                                   key=self.key, cert=self.crt,chain=self.chain))
