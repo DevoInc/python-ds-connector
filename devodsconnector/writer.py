@@ -1,7 +1,9 @@
 import os
 import configparser
 import sys
+import socket
 import csv
+import pathlib
 import numpy as np
 from collections import abc
 
@@ -33,9 +35,11 @@ class Writer:
         if not all([self.key, self.crt, self.chain, self.relay]):
             raise Exception('Credentials and relay must be specified or in ~/.devo_credentials')
 
-        engine_config = SenderConfigSSL(address=self.relay, port=self.port,
-                                        key=self.key, cert=self.crt,chain=self.chain)
-        self.sender = Sender(engine_config)
+        # engine_config = SenderConfigSSL(address=self.relay, port=self.port,
+        #                                 key=self.key, cert=self.crt,chain=self.chain)
+
+        self.sender = Sender(dict(address=self.relay, port=self.port,
+                                  key=self.key, cert=self.crt,chain=self.chain))
 
     def _read_profile(self):
 
