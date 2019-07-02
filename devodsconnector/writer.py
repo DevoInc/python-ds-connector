@@ -1,28 +1,31 @@
 import os
 import configparser
-import socket
-import ssl
 import sys
+import socket
 import csv
+import pathlib
 import numpy as np
 from collections import abc
-from contextlib import contextmanager
+
+from devo.sender import Sender
 
 csv.field_size_limit(sys.maxsize)
 
 
 class Writer:
 
-    def __init__(self, profile='default', key=None, crt=None, chain=None, relay=None, timeout=2):
+    def __init__(self, profile='default', key=None, crt=None,
+                       chain=None, relay=None, port=443,
+                       credential_path='~/.devo_credentials'):
 
         self.profile = profile
         self.key = key
         self.crt = crt
         self.chain = chain
         self.relay = relay
+        self.port = port
 
-        self.sock = None
-        self.timeout = timeout
+        self.credential_path = pathlib.Path(credential_path).expanduser()
 
         if not all([key, crt, chain, relay]):
             self._read_profile()
@@ -30,13 +33,13 @@ class Writer:
         if not all([self.key, self.crt, self.chain, self.relay]):
             raise Exception('Credentials and relay must be specified or in ~/.devo_credentials')
 
-        self.address = (self.relay, 443)
+        self.sender = Sender(dict(address=self.relay, port=self.port,
+                                  key=self.key, cert=self.crt,chain=self.chain))
 
     def _read_profile(self):
 
         config = configparser.ConfigParser()
-        credential_path = os.path.join(os.path.expanduser('~'), '.devo_credentials')
-        config.read(credential_path)
+        config.read(self.credential_path)
 
         if self.profile in config:
             profile_config = config[self.profile]
@@ -45,29 +48,13 @@ class Writer:
             self.crt = profile_config.get('crt')
             self.chain = profile_config.get('chain')
             self.relay = profile_config.get('relay')
+            self.port = int(profile_config.get('port', 443))
 
-    @contextmanager
-    def _connect_socket(self):
-
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.sock.settimeout(self.timeout)
-
-        self.sock = ssl.wrap_socket(self.sock,
-                                    keyfile=self.key,
-                                    certfile=self.crt,
-                                    ca_certs=self.chain,
-                                    cert_reqs=ssl.CERT_REQUIRED)
-
-        self.sock.connect(self.address)
-
-        yield None
-        self.sock.close()
-        self.sock = None
 
     def load_file(self, file_path, tag, historical=True, ts_index=None,
                         ts_name=None, header=False, columns=None, linq_func=print):
 
-        with self._connect_socket() as _, open(file_path, 'r') as f:
+        with open(file_path, 'r') as f:
             data = csv.reader(f)
             first = next(data)
 
@@ -128,8 +115,7 @@ class Writer:
         else:
             linq_output = None
 
-        with self._connect_socket() as _:
-            self._load(data, tag, historical, ts_index, chunk_size)
+        self._load(data, tag, historical, ts_index, chunk_size)
 
         return linq_output
 
@@ -160,12 +146,12 @@ class Writer:
             counter += 1
 
             if counter == chunk_size:
-                self.sock.sendall(bulk_msg.encode())
+                self.sender.send_raw(bulk_msg.encode())
                 counter = 0
                 bulk_msg = ''
 
         if bulk_msg:
-            self.sock.sendall(bulk_msg.encode())
+            self.sender.send_raw(bulk_msg.encode())
 
     @staticmethod
     def _make_message_header(tag, historical):
