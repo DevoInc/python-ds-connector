@@ -119,13 +119,11 @@ class Writer:
 
         return linq_output
 
-
-
     def load_df(self, df, tag, ts_name, linq_func=print):
 
-        data = df.to_dict(orient='records')
-        return self.load(data, tag, historical=True, ts_name=ts_name, linq_func=linq_func)
-
+        data = df.values.tolist()
+        ts_index = df.columns.get_loc(ts_name)
+        self.load(data, tag, historical=True ,ts_index=ts_index ,linq_func=linq_func)
 
     def _load(self, data, tag, historical, ts_index=None, chunk_size=50):
 
