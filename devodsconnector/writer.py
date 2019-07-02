@@ -7,7 +7,7 @@ import pathlib
 import numpy as np
 from collections import abc
 
-from devo.sender import SenderConfigSSL, Sender
+from devo.sender import Sender
 
 csv.field_size_limit(sys.maxsize)
 
