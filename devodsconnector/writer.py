@@ -15,7 +15,8 @@ csv.field_size_limit(sys.maxsize)
 class Writer:
 
     def __init__(self, profile='default', key=None, crt=None,
-                       chain=None, relay=None, port=443, credential_path=None):
+                       chain=None, relay=None, port=443,
+                       credential_path='~/.devo_credentials'):
 
         self.profile = profile
         self.key = key
@@ -24,10 +25,8 @@ class Writer:
         self.relay = relay
         self.port = port
 
-        if credential_path:
-            self.credential_path = pathlib.Path(credential_path).expanduser()
-        else:
-            self.credential_path = pathlib.Path('~/.devo_credentials').expanduser()
+        self.credential_path = pathlib.Path(credential_path).expanduser()
+
 
         if not all([key, crt, chain, relay]):
             self._read_profile()

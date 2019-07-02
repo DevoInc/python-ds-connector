@@ -23,7 +23,8 @@ warnings.simplefilter('always', UserWarning)
 class Reader(object):
 
     def __init__(self, profile='default', api_key=None, api_secret=None,
-                       end_point=None, oauth_token=None, jwt=None, credential_path=None):
+                       end_point=None, oauth_token=None, jwt=None,
+                       credential_path='~/.devo_credentials'):
 
         self.profile = profile
         self.api_key = api_key
@@ -32,11 +33,7 @@ class Reader(object):
         self.oauth_token = oauth_token
         self.jwt = jwt
 
-        if credential_path:
-            self.credential_path = pathlib.Path(credential_path).expanduser()
-        else:
-            self.credential_path = pathlib.Path('~/.devo_credentials').expanduser()
-
+        self.credential_path = pathlib.Path(credential_path).expanduser()
 
         if not (self.end_point and (self.oauth_token or self.jwt or (self.api_key and self.api_secret))):
             self._read_profile()
