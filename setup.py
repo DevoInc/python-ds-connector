@@ -1,5 +1,10 @@
+import pathlib
 from setuptools import setup, find_packages
 
+here = pathlib.Path(__file__).parent.absolute().resolve()
+about = {}
+with open(here / 'devodsconnector' / '__version__.py') as f:
+    exec(f.read(), about)
 
 
 requires = [
@@ -12,7 +17,7 @@ requires = [
 
 setup(
     name='devodsconnector',
-    version='1.0.0',
+    version=about['__version__'],
     author='Nick Murphy',
     author_email='nick.murphy@devo.com',
     description='APIs for querying and loading data into Devo',
