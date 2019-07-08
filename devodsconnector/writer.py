@@ -56,8 +56,8 @@ class Writer:
             self.port = int(profile_config.get('port', 443))
 
 
-    def load_file(self, file_path, tag, historical=True, ts=None, ts_index=None, delimiter=','
-                        ts_name=None, header=False, columns=None, linq_func=print):
+    def load_file(self, file_path, tag, historical=True, ts_index=None, ts_name=None,
+                        delimiter=',', header=False, columns=None, linq_func=print):
 
         with open(file_path, 'r') as f:
             data = csv.reader(f, delimiter=delimiter)
@@ -88,10 +88,8 @@ class Writer:
 
         return linq_output
 
-    def load(self, data, tag, historical=True, ts=None, ts_index=None,
+    def load(self, data, tag, historical=True, ts_index=None,
                    ts_name=None, columns=None, linq_func=print):
-
-        ts = self._get_ts(ts,ts_name,ts_index)
 
         data = iter(data)
         first = next(data)
@@ -104,25 +102,26 @@ class Writer:
             num_cols = len(first)
 
         if isinstance(first, abc.Sequence):
-            ts_index = ts
             data = self._process_seq(data, first)
-        elif isinstance(first, abc.Mapping):
-            if not columns:
-                names = sorted(first.keys())
-            else:
+        elif isinstance(first, (abc.Mapping, np.ndarray, pd.core.series.Series)) and not isinstance(first, str):
+            if columns:
                 names = columns[:]
+            else:
+                names = sorted(first.keys())
 
             if historical and columns:
-                names.append(ts)
+                names.append(ts_name)
                 ts_index = num_cols
             elif historical:
-                names.remove(ts)
+                names.remove(ts_name)
                 columns = names[:]
-                names.append(ts)
+                names.append(ts_name)
                 ts_index = num_cols
             else:
                 columns = names
             data = self._process_mapping(data, first, names)
+        else:
+            raise Exception(f'data of type {type(first)} is not supported for loading')
 
         if linq_func is not None:
             linq = self._build_linq(tag, num_cols, columns)
@@ -242,15 +241,3 @@ class Writer:
             linq += col_extract.format(i=i, col_name=col_name)
 
         return linq
-
-    @staticmethod
-    _get_ts(ts,ts_index,ts_name):
-        deprecation_msg = 'ts_index and ts_name are deprecated. Use ts for both'
-        if ts_index is not None:
-            warnings.warn(deprecation_msg)
-            return ts_index
-        elif ts_name is not None:
-            warnings.warn(deprecation_msg)
-            return ts_name
-        else:
-            return ts
