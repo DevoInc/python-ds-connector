@@ -9,8 +9,10 @@ from collections import abc
 
 from devo.sender import Sender
 
-csv.field_size_limit(sys.maxsize)
+import warnings
 
+csv.field_size_limit(sys.maxsize)
+warnings.simplefilter('always', UserWarning)
 
 class Writer:
 
@@ -51,11 +53,11 @@ class Writer:
             self.port = int(profile_config.get('port', 443))
 
 
-    def load_file(self, file_path, tag, historical=True, ts_index=None,
+    def load_file(self, file_path, tag, historical=True, ts=None, ts_index=None, delimiter=','
                         ts_name=None, header=False, columns=None, linq_func=print):
 
         with open(file_path, 'r') as f:
-            data = csv.reader(f)
+            data = csv.reader(f, delimiter=delimiter)
             first = next(data)
 
             if historical:
@@ -83,8 +85,10 @@ class Writer:
 
         return linq_output
 
-    def load(self, data, tag, historical=True, ts_index=None,
+    def load(self, data, tag, historical=True, ts=None, ts_index=None,
                    ts_name=None, columns=None, linq_func=print):
+
+        ts = self._get_ts(ts,ts_name,ts_index)
 
         data = iter(data)
         first = next(data)
@@ -97,14 +101,22 @@ class Writer:
             num_cols = len(first)
 
         if isinstance(first, abc.Sequence):
+            ts_index = ts
             data = self._process_seq(data, first)
         elif isinstance(first, abc.Mapping):
-            names = list(first.keys())
-            if historical:
+            if not columns:
+                names = sorted(first.keys())
+            else:
+                names = columns[:]
+
+            if historical and columns:
+                names.append(ts)
                 ts_index = num_cols
-                names.remove(ts_name)
+            elif historical:
+                names.remove(ts)
                 columns = names[:]
-                names += [ts_name]
+                names.append(ts)
+                ts_index = num_cols
             else:
                 columns = names
             data = self._process_mapping(data, first, names)
@@ -119,10 +131,12 @@ class Writer:
 
         return linq_output
 
-    def load_df(self, df, tag, ts_name, linq_func=print):
-
+    def load_df(self, df, tag, ts_index=None, ts_name=None, linq_func=print):
         data = df.values.tolist()
-        ts_index = df.columns.get_loc(ts_name)
+
+        if ts_index is None:
+            ts_index = df.columns.get_loc(ts_name)
+
         self.load(data, tag, historical=True ,ts_index=ts_index ,linq_func=linq_func)
 
     def _load(self, data, tag, historical, ts_index=None, chunk_size=50):
@@ -225,3 +239,15 @@ class Writer:
             linq += col_extract.format(i=i, col_name=col_name)
 
         return linq
+
+    @staticmethod
+    _get_ts(ts,ts_index,ts_name):
+        deprecation_msg = 'ts_index and ts_name are deprecated. Use ts for both'
+        if ts_index is not None:
+            warnings.warn(deprecation_msg)
+            return ts_index
+        elif ts_name is not None:
+            warnings.warn(deprecation_msg)
+            return ts_name
+        else:
+            return ts
