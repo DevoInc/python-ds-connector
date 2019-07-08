@@ -6,7 +6,7 @@ from datetime import timezone
 import json
 import csv
 import warnings
-import pathlib
+from pathlib import Path
 from collections import namedtuple, defaultdict
 import numpy as np
 import pandas as pd
@@ -24,7 +24,7 @@ class Reader(object):
 
     def __init__(self, profile='default', api_key=None, api_secret=None,
                        end_point=None, oauth_token=None, jwt=None,
-                       credential_path='~/.devo_credentials'):
+                       credential_path=None):
 
         self.profile = profile
         self.api_key = api_key
@@ -33,7 +33,10 @@ class Reader(object):
         self.oauth_token = oauth_token
         self.jwt = jwt
 
-        self.credential_path = pathlib.Path(credential_path).expanduser()
+        if credentials is None:
+                self.credential_path = Path.home() / '.devo_credentials'
+        else:
+            self.credential_path = Path(credential_path).resolve().expanduser()
 
         if not (self.end_point and (self.oauth_token or self.jwt or (self.api_key and self.api_secret))):
             self._read_profile()

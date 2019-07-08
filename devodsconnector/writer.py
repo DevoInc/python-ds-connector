@@ -3,8 +3,8 @@ import configparser
 import sys
 import socket
 import csv
-import pathlib
 import numpy as np
+from pathlib import Path
 from collections import abc
 
 from devo.sender import Sender
@@ -18,7 +18,7 @@ class Writer:
 
     def __init__(self, profile='default', key=None, crt=None,
                        chain=None, relay=None, port=443,
-                       credential_path='~/.devo_credentials'):
+                       credential_path=None):
 
         self.profile = profile
         self.key = key
@@ -27,7 +27,10 @@ class Writer:
         self.relay = relay
         self.port = port
 
-        self.credential_path = pathlib.Path(credential_path).expanduser()
+        if credentials is None:
+                self.credential_path = Path.home() / '.devo_credentials'
+        else:
+            self.credential_path = Path(credential_path).resolve().expanduser()
 
         if not all([key, crt, chain, relay]):
             self._read_profile()
