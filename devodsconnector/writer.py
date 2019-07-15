@@ -27,6 +27,8 @@ class Writer:
         self.relay = relay
         self.port = port
 
+        self.schemas = None
+
         if credentials is None:
                 self.credential_path = Path.home() / '.devo_credentials'
         else:
@@ -107,7 +109,7 @@ class Writer:
             if columns:
                 names = columns[:]
             else:
-                names = sorted(first.keys())
+                names = sorted(first)
 
             if historical and columns:
                 names.append(ts_name)
@@ -172,12 +174,12 @@ class Writer:
         hostname = socket.gethostname()
 
         if historical:
-            tag = '(usd)' + tag
-            prefix = '<14>{0} '
+            tag = f'(usd){tag}'
+            prefix = f'<14>{{0}}'
         else:
-            prefix = '<14>Jan  1 00:00:00 '
+            prefix = '<14>Jan  1 00:00:00'
 
-        return prefix + '{0} {1}: '.format(hostname, tag)
+        return f'{prefix} {hostname} {tag}: '
 
     @staticmethod
     def _make_msg(header, row):
@@ -217,7 +219,7 @@ class Writer:
             yield [str(row[c]) for c in names]
 
     @staticmethod
-    def _build_linq(tag, num_cols, columns=None):
+    def _build_linq(tag, num_cols=None, columns=None):
 
         if columns is None:
             columns = ['col_{0}'.format(i) for i in range(num_cols)]
@@ -243,69 +245,42 @@ class Writer:
         return linq
 
 
-    def load_multi(self, data, tag_index=None, tag_name=None,
-                   historical=True, ts_index=None,
-                   ts_name=None, default_schema=None, columns=None):
+    def load_multi(self, data, tag_name=None,
+                   historical=True,
+                   ts_name=None, default_schema=None, schemas=None,
+                   linq_func=None):
 
         data = iter(data)
         first = next(data)
 
-        if historical:
-            chunk_size = 50
-        else:
-            chunk_size = 1
+        chunk_size = 50 if historical else 1
 
-        num_cols = len(first)
-
-        if columns is None:
-            columns = {}
-
-
-        if isinstance(first, abc.Sequence):
-            data = self._process_seq(data, first)
+        if elif isinstance(first, (abc.Mapping, np.ndarray, pd.core.series.Series)) and not isinstance(first, str):
+            self.processor = ListProcessor(historical, linq_func)
         elif isinstance(first, abc.Mapping):
-            names = list(first.keys())
-            if historical:
-                ts_index = num_cols - 2
-                tag_index = num_cols - 1
-                names.remove(ts_name)
-                names.remove(tag_name)
-                names += [ts_name, tag_name]
-            else:
-                tag_index = num_cols - 1
-                names.remove(tag_name)
-                names += [tag_name]
+            self.processor = DictProcessor(schemas, default_schema, historical,
+                                         tag_name, ts_name, linq_func)
+        else:
+            raise Exception(f'data of type {type(first)} is not supported for loading')
 
+        data = self._process_data(data, first)
+        self._load_multi(data, historical, chunk_size)
 
-            data = self._process_mapping(data, first, names)
-
-        self._load_multi(data, historical, ts_index, tag_index, chunk_size)
-
-    def _load_multi(self, data, historical, ts_index=None, tag_index=None, chunk_size=50):
+    def _load_multi(self, data, historical, chunk_size=50):
 
         counter = 0
         bulk_msg = ''
 
         for row in data:
-
             if historical:
-
-                # pop in reverse order to preserve indices
-                if ts_index < tag_index:
-                    tag = row.pop(tag_index)
-                    ts = row.pop(ts_index)
-                elif tag_index < ts_index:
-                    ts = row.pop(ts_index)
-                    tag = row.pop(tag_index)
-                else:
-                    raise Exception('ts and tag were assigned same index')
-
+                ts = row.pop(0)
+                tag = row.pop(0)
                 message_header = self._make_message_header(tag, historical).format(ts)
-
             else:
-                tag = row.pop(tag_index)
+                tag = row.pop(0)
                 message_header = self._make_message_header(tag, historical)
 
+            message_header = self._make_message_header(tag, historical)
             bulk_msg += self._make_msg(message_header, row)
             counter += 1
 
@@ -316,3 +291,75 @@ class Writer:
 
         if bulk_msg:
             self.sender.send_raw(bulk_msg.encode())
+
+    @staticmethod
+    def _process_data(data, firt):
+        yield self.processor.process_row(first)
+        for row in data:
+            yield self.processor.process_row(row)
+
+
+class ListProcessor:
+
+    def __init__(self, historical, linq_func):
+        self.seen_tags = set()
+        self.historical = historical
+        self.linq_func = linq_func
+
+    def process_row(self, row):
+        row = [str(c) for c in row]
+
+        if self.historical:
+            num_cols = len(first) - 2
+            tag = first[1]
+        else:
+            num_cols = len(first) - 1
+            tag = first[0]
+
+        if tag not in self.seen_tags:
+            self.seen_tags.add(tag)
+            if self.linq_func is not None
+                self.linq = Writer._build_linq(tag, num_cols)
+                linq_func(linq)
+
+        return row
+
+
+class DictProcessor:
+
+    def __init__(self, schemas, default_schema, historical,
+                 tag_name, ts_name, linq_func):
+        self.schemas = schemas if schemas else {}
+        self.default_schema = default_schema
+        self.historical = historical
+        self.linq_func = linq_func
+        self.tag_name = tag_name
+        self.ts_name = ts_name
+
+        if self.linq_func is not None:
+            for tag, schema in self.schemas.items():
+                linq = Writer._build_linq(tag, schema)
+                self.linq_func(linq)
+
+    def process_row(self, row):
+        tag = row.pop(self.tag_name)
+        if self.historical:
+            ts = row.pop(self.ts_name)
+            header = [str(ts), str(tag)]
+        else:
+            header = [str(tag)]
+
+        schema = self.schemas.get(tag)
+        if (schema is None) and (self.default_schema is not None):
+            schema = self.default_schema
+            self.schemas[tag] = schema
+            linq = Writer._build_linq(tag, schema)
+            self.linq_func(linq)
+
+        elif schema is None:
+            schema = sorted(row)
+            self.schemas[tag] = schema
+            linq = Writer._build_linq(tag, schema)
+            self.linq_func(linq)
+
+        return header + [str(row[c]) for c in schema]
