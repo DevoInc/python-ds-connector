@@ -4,6 +4,7 @@ import sys
 import socket
 import csv
 import numpy as np
+import pandas as pd
 from pathlib import Path
 from collections import abc
 
@@ -27,9 +28,7 @@ class Writer:
         self.relay = relay
         self.port = port
 
-        self.schemas = None
-
-        if credentials is None:
+        if credential_path is None:
                 self.credential_path = Path.home() / '.devo_credentials'
         else:
             self.credential_path = Path(credential_path).resolve().expanduser()
@@ -255,15 +254,15 @@ class Writer:
 
         chunk_size = 50 if historical else 1
 
-        if elif isinstance(first, (abc.Mapping, np.ndarray, pd.core.series.Series)) and not isinstance(first, str):
+        if isinstance(first, (abc.Sequence, np.ndarray, pd.core.series.Series)) and not isinstance(first, str):
             self.processor = ListProcessor(historical, linq_func)
         elif isinstance(first, abc.Mapping):
             self.processor = DictProcessor(schemas, default_schema, historical,
-                                         tag_name, ts_name, linq_func)
+                                           tag_name, ts_name, linq_func)
         else:
             raise Exception(f'data of type {type(first)} is not supported for loading')
 
-        data = self._process_data(data, first)
+        data = self.processor.process_data(data, first)
         self._load_multi(data, historical, chunk_size)
 
     def _load_multi(self, data, historical, chunk_size=50):
@@ -271,13 +270,12 @@ class Writer:
         counter = 0
         bulk_msg = ''
 
-        for row in data:
+        for header, row in data:
             if historical:
-                ts = row.pop(0)
-                tag = row.pop(0)
+                ts, tag = header
                 message_header = self._make_message_header(tag, historical).format(ts)
             else:
-                tag = row.pop(0)
+                tag = header[0]
                 message_header = self._make_message_header(tag, historical)
 
             message_header = self._make_message_header(tag, historical)
@@ -292,14 +290,21 @@ class Writer:
         if bulk_msg:
             self.sender.send_raw(bulk_msg.encode())
 
-    @staticmethod
-    def _process_data(data, firt):
-        yield self.processor.process_row(first)
+
+class Processor:
+
+    def process_data(self, data, first):
+        yield self.process_row(first)
         for row in data:
-            yield self.processor.process_row(row)
+            yield self.process_row(row)
+
+    def process_linq(self, tag, num_cols=None, schema=None):
+        if self.linq_func is not None:
+            linq = Writer._build_linq(tag, num_cols=num_cols, columns=schema)
+            self.linq_func(linq)
 
 
-class ListProcessor:
+class ListProcessor(Processor):
 
     def __init__(self, historical, linq_func):
         self.seen_tags = set()
@@ -310,22 +315,22 @@ class ListProcessor:
         row = [str(c) for c in row]
 
         if self.historical:
-            num_cols = len(first) - 2
-            tag = first[1]
+            num_cols = len(row) - 2
+            tag = row[1]
+            header, row = row[:2], row[2:]
         else:
-            num_cols = len(first) - 1
-            tag = first[0]
+            num_cols = len(row) - 1
+            tag = row[0]
+            header, row = row[:1], row[1:]
 
         if tag not in self.seen_tags:
             self.seen_tags.add(tag)
-            if self.linq_func is not None
-                self.linq = Writer._build_linq(tag, num_cols)
-                linq_func(linq)
+            self.process_linq(tag, num_cols=num_cols)
 
-        return row
+        return header, row
 
 
-class DictProcessor:
+class DictProcessor(Processor):
 
     def __init__(self, schemas, default_schema, historical,
                  tag_name, ts_name, linq_func):
@@ -336,15 +341,16 @@ class DictProcessor:
         self.tag_name = tag_name
         self.ts_name = ts_name
 
-        if self.linq_func is not None:
-            for tag, schema in self.schemas.items():
-                linq = Writer._build_linq(tag, schema)
-                self.linq_func(linq)
+        for tag, schema in self.schemas.items():
+            self.process_linq(tag, schema=schema)
 
     def process_row(self, row):
-        tag = row.pop(self.tag_name)
+        tag = row[self.tag_name]
+        names = list(row)
+        names.remove(self.tag_name)
         if self.historical:
-            ts = row.pop(self.ts_name)
+            names.remove(self.ts_name)
+            ts = row[self.ts_name]
             header = [str(ts), str(tag)]
         else:
             header = [str(tag)]
@@ -353,13 +359,11 @@ class DictProcessor:
         if (schema is None) and (self.default_schema is not None):
             schema = self.default_schema
             self.schemas[tag] = schema
-            linq = Writer._build_linq(tag, schema)
-            self.linq_func(linq)
+            self.process_linq(tag, schema=schema)
 
         elif schema is None:
-            schema = sorted(row)
+            schema = sorted(names)
             self.schemas[tag] = schema
-            linq = Writer._build_linq(tag, schema)
-            self.linq_func(linq)
+            self.process_linq(tag, schema=schema)
 
-        return header + [str(row[c]) for c in schema]
+        return header, [str(row[c]) for c in schema]
