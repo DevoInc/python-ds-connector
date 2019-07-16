@@ -3,6 +3,7 @@ import configparser
 import sys
 import socket
 import csv
+import datetime
 import numpy as np
 import pandas as pd
 from pathlib import Path
@@ -14,6 +15,7 @@ import warnings
 
 csv.field_size_limit(sys.maxsize)
 warnings.simplefilter('always', UserWarning)
+
 
 class Writer:
 
@@ -278,7 +280,6 @@ class Writer:
                 tag = header[0]
                 message_header = self._make_message_header(tag, historical)
 
-            message_header = self._make_message_header(tag, historical)
             bulk_msg += self._make_msg(message_header, row)
             counter += 1
 
@@ -289,6 +290,17 @@ class Writer:
 
         if bulk_msg:
             self.sender.send_raw(bulk_msg.encode())
+
+    @staticmethod
+    def _to_ts_string(ts):
+        if isinstance(ts, (int,float)):
+            ts = pd.to_datetime(ts, unit='s')
+        elif isinstance(ts, str):
+            ts = pd.to_datetime(ts)
+        elif isinstance(ts, (pd.Timestamp, datetime.datetime)):
+            ts = ts.replace(tzinfo=None)
+
+        return str(ts)
 
 
 class Processor:
@@ -312,8 +324,6 @@ class ListProcessor(Processor):
         self.linq_func = linq_func
 
     def process_row(self, row):
-        row = [str(c) for c in row]
-
         if self.historical:
             num_cols = len(row) - 2
             tag = row[1]
@@ -327,7 +337,7 @@ class ListProcessor(Processor):
             self.seen_tags.add(tag)
             self.process_linq(tag, num_cols=num_cols)
 
-        return header, row
+        return header, [str(c) for c in row]
 
 
 class DictProcessor(Processor):
