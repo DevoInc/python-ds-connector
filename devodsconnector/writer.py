@@ -157,6 +157,7 @@ class Writer:
 
             if historical:
                 ts = row.pop(ts_index)
+                ts = self._to_ts_string(ts)
                 message_header = message_header_base.format(ts)
 
             bulk_msg += self._make_msg(message_header, row)
@@ -275,6 +276,7 @@ class Writer:
         for header, row in data:
             if historical:
                 ts, tag = header
+                ts = self._to_ts_string(ts)
                 message_header = self._make_message_header(tag, historical).format(ts)
             else:
                 tag = header[0]
