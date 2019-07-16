@@ -33,7 +33,7 @@ class Reader(object):
         self.oauth_token = oauth_token
         self.jwt = jwt
 
-        if credentials is None:
+        if credential_path is None:
                 self.credential_path = Path.home() / '.devo_credentials'
         else:
             self.credential_path = Path(credential_path).resolve().expanduser()
