@@ -1,6 +1,6 @@
 [![LICENSE](https://img.shields.io/dub/l/vibe-d.svg)](https://github.com/devods/devodsconnector/blob/master/LICENSE)
 ![python](https://img.shields.io/badge/python-3.5|3.6|3.7-blue.svg)
-![version](https://img.shields.io/badge/version-2.1.0-blue.svg)
+![version](https://img.shields.io/badge/version-1.1.0-blue.svg)
 # devodsconnector
 
 ## Installing
