@@ -44,8 +44,6 @@ class Reader(object):
         if not (self.end_point and (self.oauth_token or self.jwt or (self.api_key and self.api_secret))):
             raise Exception('End point and either API keys or OAuth Token must be specified or in ~/.devo_credentials')
 
-        self._make_type_map()
-
         self.client = Client(auth=dict(key=self.api_key,secret=self.api_secret,
                                        token=self.oauth_token,jwt=self.jwt),
                              address=self.end_point)
@@ -74,7 +72,7 @@ class Reader(object):
             elif self.end_point == 'EU':
                 self.end_point = 'https://apiv2-eu.devo.com/search/query'
 
-    def query(self, linq_query, start, stop=None, output='dict'):
+    def query(self, linq_query, start, stop=None, output='dict', ts_format='datetime'):
 
         valid_outputs = ('dict', 'list', 'namedtuple', 'dataframe')
         if output not in valid_outputs:
@@ -83,18 +81,18 @@ class Reader(object):
         if output=='dataframe' and stop is None:
             raise Exception("DataFrame can't be build from continuous query")
 
-        results = self._stream(linq_query,start,stop)
+        results = self._stream(linq_query,start,stop,ts_format)
         cols = next(results)
 
         return getattr(self, f'_to_{output}')(results,cols)
 
-    def _stream(self, linq_query, start, stop):
+    def _stream(self, linq_query, start, stop, ts_format):
         """
         yields columns names then rows in lists with converted
         types
         """
 
-        type_dict = self._get_types(linq_query, start)
+        type_dict = self._get_types(linq_query, start, ts_format)
 
         result = self._query(linq_query, start, stop, mode = 'csv', stream = True)
         result = self._decode_results(result)
@@ -137,10 +135,28 @@ class Reader(object):
                 return f(v)
         return null_f
 
-    def _make_type_map(self):
+    @staticmethod
+    def make_ts_func(ts_format):
+        if ts_format not in ('datetime', 'iso', 'timestamp'):
+            raise Exception('ts_format must be one of: datetime, iso, or timestamp ')
+
+        def ts_func(t):
+            dt = datetime.datetime.strptime(t.strip(), '%Y-%m-%d %H:%M:%S.%f')
+
+            if ts_format == 'datetime':
+                return dt
+            elif ts_format == 'iso':
+                return dt.isoformat()
+            elif ts_format == 'timestamp':
+                return dt.timestamp()
+            else:
+                raise Exception('ts_format must be one of: datetime, iso, or timestamp ')
+        return ts_func
+
+    def _make_type_map(self,ts_format):
 
         funcs = {
-                'timestamp': lambda t: datetime.datetime.strptime(t.strip(), '%Y-%m-%d %H:%M:%S.%f'),
+                'timestamp': self.make_ts_func(ts_format),
                 'str': str,
                 'int8': int,
                 'int4': int,
@@ -151,12 +167,14 @@ class Reader(object):
 
         decorated_funcs = {t: self._null_decorator(f) for t, f in funcs.items()}
         decorated_str = self._null_decorator(str)
-        self._map = defaultdict(lambda: decorated_str, decorated_funcs)
 
-    def _get_types(self,linq_query,start):
+        return defaultdict(lambda: decorated_str, decorated_funcs)
+
+    def _get_types(self,linq_query,start,ts_format):
         """
         Gets types of each column of submitted
         """
+        type_map = self._make_type_map(ts_format)
 
         # so we don't have  stop ts in future as required by API V2
         stop = self._to_unix(start)
@@ -171,7 +189,7 @@ class Reader(object):
             raise Exception('API V2 response error')
 
         col_data = data['object']['m']
-        type_dict = { c:self._map[v['type']] for c,v in col_data.items() }
+        type_dict = { c:type_map[v['type']] for c,v in col_data.items() }
 
         return type_dict
 
