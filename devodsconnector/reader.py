@@ -137,6 +137,9 @@ class Reader(object):
 
     @staticmethod
     def make_ts_func(ts_format):
+        if ts_format not in ('datetime', 'iso', 'timestamp'):
+            raise Exception('ts_format must be one of: datetime, iso, or timestamp ')
+
         def ts_func(t):
             dt = datetime.datetime.strptime(t.strip(), '%Y-%m-%d %H:%M:%S.%f')
 
