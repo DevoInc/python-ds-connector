@@ -1,6 +1,6 @@
 [![LICENSE](https://img.shields.io/dub/l/vibe-d.svg)](https://github.com/devods/devodsconnector/blob/master/LICENSE)
 ![python](https://img.shields.io/badge/python-3.5|3.6|3.7-blue.svg)
-![version](https://img.shields.io/badge/version-1.1.0-blue.svg)
+![version](https://img.shields.io/badge/version-1.2.0-blue.svg)
 # devodsconnector
 
 The Devo Data Science Connector is a python package for integrating data stored in Devo into a data science workflow. This package is built on top of the [Devo Python-SDK](https://github.com/DevoInc/python-sdk), a python package for querying and uploading data to Devo. Data can be pull from Devo into a variety of formats including pandas DataFrames.  In addition, random or population sampling can be applied to the queried dataset.  
@@ -38,15 +38,17 @@ for the EU is `'https://apiv2-eu.devo.com/search/query'`
 
 #### Methods
 
-`Reader.query(linq_query, start, stop=None, output='dict')`  
+`Reader.query(linq_query, start, stop=None, output='dict', ts_format='datetime')`  
 
 `linq_query`: Linq query to run against Devo as a string.
 
-`start`: The start time (in UTC) to run the Linq query on.  start may be specified as a string, a datetime object, or as a unix timestamp in seconds.  Examples are valid strings are: `'2018-01-01'`,  `'Feb 10, 2019'`, or `'2019-01-01 10:05:00'`. Note that strings will be converted by [pandas.to_datetime](https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.to_datetime.html).
+`start`: The start time (in UTC) to run the Linq query on.  start may be specified as a string, a datetime object, or as a unix timestamp in seconds.  Examples of valid strings are: `'2018-01-01'`,  `'Feb 10, 2019'`, `'2019-01-01 10:05:00'`, or `'2019-02-05T00:00:00'`. Note that strings will be converted by [pandas.to_datetime](https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.to_datetime.html).
 
 `stop`: The end time (in UTC) to run the Linq query on. stop may be None or specified in the same way as start.  Set `stop` to `None` for a continuous query.
 
 `output`: Determines how the results of the Linq query will be returned.  Valid options are `'dict', 'list', 'namedtuple', or 'dataframe'`.  If output is `'dataframe'` the results will be returned in a `pandas.DataFrame`.  Note that a dataframe cannot be build from a continuous query.  For any other type of output a generator is returned.  Each element of the generator represents one row data in the results of the Linq query. That row will be stored in the data structure specified by output.  For example, an output of `'dict'` means rows will be represented as dictionaries where the keys are the column names corresponding to the values of that row.
+
+`ts_format`: Determines how any timestamp columns are returned.  Valid options are `'datetime'`, `'iso'`, or `'timestamp'`.  `'datetime'` will return a `datetime.datetime` object, `'iso'` will return a string in ISO 8601 format, and `'timestamp'` will return a unix timestamp in seconds.
 
 
 ```
