@@ -12,7 +12,7 @@ The Connector also offers the ability to upload a variety of data formats back t
 The Devo DS Connector requires Python 3.5+
 
 ```
-pip install git+https://github.com/devods/devodsconnector.git
+pip install git+https://github.com/DevoInc/python-ds-connector.git
 ```
 
 ## Usage
@@ -23,7 +23,7 @@ pip install git+https://github.com/devods/devodsconnector.git
 
 ### Creating a Reader object
 
-To query Devo, create a `Reader` object found in [reader.py](https://github.com/devods/devodsconnector/blob/master/devodsconnector/reader.py)
+To query Devo, create a `Reader` object found in [reader.py](devodsconnector/reader.py)
 
 Credentials must be specified when creating a `Reader` object in order to access the data in Devo.  In addition to credentials, an end point must be specified as well.  Credentials and end points can be specified in three ways:
 
@@ -114,7 +114,7 @@ Name: userid, dtype: int64
 
 ## Loading Data into Devo
 
-To load data, create a `Writer` object found in [writer.py](https://github.com/devods/devodsconnector/blob/master/devodsconnector/writer.py)
+To load data, create a `Writer` object found in [writer.py](devodsconnector/writer.py)
 
 Credentials must also be specified when creating a `Writer` object in order to send data into Devo.  In addition to credentials, a relay must be specified as well.  Credentials and relays can be specified in two ways:
 
