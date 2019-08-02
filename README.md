@@ -42,7 +42,7 @@ for the EU is `'https://apiv2-eu.devo.com/search/query'`
 
 `linq_query`: Linq query to run against Devo as a string.
 
-`start`: The start time (in UTC) to run the Linq query on.  start may be specified as a string, a datetime object, or as a unix timestamp in seconds.  Examples of valid strings are: `'2018-01-01'`,  `'Feb 10, 2019'`, `'2019-01-01 10:05:00'`, or `'2019-02-05T00:00:00'`. Note that strings will be converted by [pandas.to_datetime](https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.to_datetime.html).
+`start`: The start time (in UTC) to run the Linq query on.  start may be specified as a string, a datetime object, pandas Timestamp, or as a unix timestamp in seconds.  Examples of valid strings are: `'2018-01-01'`,  `'Feb 10, 2019'`, `'2019-01-01 10:05:00'`, or `'2019-02-05T00:00:00'`. Note that strings will be converted by [pandas.to_datetime](https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.to_datetime.html).
 
 `stop`: The end time (in UTC) to run the Linq query on. stop may be None or specified in the same way as start.  Set `stop` to `None` for a continuous query.
 
@@ -131,18 +131,12 @@ Both real time and historical data can be sent into Devo using the `Writer`.
 The `historical` argument to any of the loading method is used to specify if
 the data should be loaded in real time or with a historical timestamp.
 
-For real time uploads, each record sent to Devo will be given an eventdate
-corresponding to the time that it was received by Devo.  In the case of real time
-uploads, no timestamp needs to be provided within the data itself.
+For real time uploads, each record sent to Devo will be given an eventdate corresponding to the time that it was received by Devo. In the case of real time uploads, no timestamp needs to be provided within the data itself.
 
-For historical uploads, each record must have a timestamp.  The timestamp
-should be specified using either `ts_index` or `ts_name` (see the description
-of the methods for more information).  This timestamp should be in the
-form of `YYYY-MM-DD hh:mm:ss` with the seconds having an optional fractional
-component. Note that any object that has a string representation of this form
-is a valid timestamp. For example, a `datetime.datetime` object meets this
-criteria.  
-Warning: historical data should be sent into Devo in order.        
+For historical uploads, each record must have a timestamp.  The timestamp should be specified using either `ts_index` or `ts_name` (see the description of the methods for more information). In general, timestamps may be in any format accepted by the `start` argument to `Reader.query` (string, datetime, pandas Timestamp, or unix timestamp in seconds). Note, that when loading data from a file the timestamp must be in    
+`YYYY-MM-DD hh:mm:ss` format with the seconds having an optional fractional component.
+
+###### Warning: Historical data should be sent into Devo in order.        
 
 
 #### Methods
@@ -161,33 +155,61 @@ Warning: historical data should be sent into Devo in order.
 
 `columns`: If data is an iterable of lists, columns can optionally be specified to include column names in the generated Linq that parses the uploaded data.  See the section on accessing uploaded data.
 
+For iterables of dictionaries, columns can optionally be supplied to define the order for the keys of each dictionary to be loaded. If columns is not supplied, the order will be determined by sorting the keys
+
+For historical loading of either list or dictionaries, the the timestamp column should not be included in the columns argument.    
+
 `linq_func`: A callback function to process the Linq generated when loading data. The function will be called with the generated linq as its only argument.  The return value of `linq_func` will be returned by this method.  Note that `linq_func` will be called before the data is actually uploaded to ensure the linq is processed in the case of continuous uploads.  Common use cases are writing the linq to a file or returning the linq. Set `linq_func` to `None` to not generate and process the linq. See the section on accessing uploaded data for more information.
 
-`Writer.load_file(file_path, tag, historical=True, ts_index=None, ts_name=None, header=False, columns=None, linq_func=print)`
+`Writer.load_file(file_path, tag, historical=True, ts_index=None, ts_name=None, delimiter=',', header=False, columns=None, linq_func=print)`
 
 `file_path`: path to a csv file containing the data to be uploaded as a string
 
+`delimiter`: specifies the character used to to split fields in the the file
+
 `header`: Denotes if the csv file contains a header row
 
-`tag`, `historical` are specified the same as in the `load` method
+`tag`, `historical`, and `linq_func` are specified the same as in the `load` method
 
 `ts_index` Can be used when `historical` is `True` to specify the column in the csv containing the historical timestamp.
 
 `ts_name` Can be used when both `historical` and `header` are `True`.  `ts_name` specifies the column in the csv containing the historical timestamp by column name.
 
-`linq_func`: specified the same as the `load` method above.
 
-`Writer.load_df(df, tag, ts_name, linq_func=print)`
+`Writer.load_df(df, df, tag, ts_index=None, ts_name=None, linq_func=print)`
 
 `df`: `pandas.DataFrame` to be loaded into Devo
 
 `tag`: Full name of the table to load the data into.
 
+`ts_index`: Index of the column containing the historical timestamp.
+
 `ts_name`: The column name containing the historical timestamp.
 
 `linq_func`: specified the same as the `load` method above.
 
-Note that `load_df` can only be used for historical data uploads.
+Note that `load_df` can only be used for historical data uploads. This means that exactly one of `ts_index` or `ts_name` should be specified.
+
+
+`Writer.load_multi(data, tag_name=None, historical=True,
+ts_name=None, default_schema=None, schemas=None, linq_func=None)`
+
+This method can be used to load data to multiple different tables.  
+
+`data`, `historical`, and `ts_name` are specified the same is in the `load` method
+
+`tag_name`: Use when data is an iterable of dictionaries.  `tag_name` specifies key of the dictionary that contains the tag to load this row into.
+
+For loading lists, the format must have the tag to load to in the first position and the rest of the data following for real time uploades ie.  `[tag, ... ]`.  For historical loading the first column must be the historical timestamp and the second column must be the tag to load the data to ie. `[ts, tag, ... ]`. Unlike in the `Writer.load` method, the position of the tag and timestamp is fixed.  This restriction is because the length of the lists for each tag may be of different length.
+
+`schemas`: Used when loading dictionaries. A dictionary mapping tags to the order the keys should be loaded in (optional).
+
+`default_scheama`:  Used when loading dictionaries.. A list of columns to be used for sorting the keys if a tag is being loaded without a value in `schemas`.  This option should only be used if all tags without a provided schema are expected to have the same keys.  
+
+If a tag is not in `schemas` and `default_schema` is `None`, the keys will be loaded in sorted order for that tag  
+
+`linq_func`: If supplied, the `linq_func` will be called for each tag included in `schemas` and  each time a new schema is encountered.  Unlike in the other load methods, the output of the `linq_func` will not be returned.
+
 
 #### Accessing Uploaded Data
 
@@ -196,8 +218,7 @@ In addition to loading the data, the `Writer` generates a Linq query that can be
 ## Credential File
 
 A credentials files can be used to store credentials for both the `Reader` and the `Writer` as well as end points and relays.
-
-The credentials file needs to be stored at `~/.devo_credentials`
+The default path for the credentials is `~/.devo_credentials`, but any location can be specified with `credentials_path={credentials locations}` when creating a `Reader` or `Writer`.
 
 #### Basic example
 
@@ -221,6 +242,15 @@ import devodsconnector as ds
 devo_reader = ds.Reader(profile='example')
 devo_writer = ds.Writer(profile='example')
 ```
+
+If the credentials file was located at `'/alternate/credentials/file'` we could create the create `Reader` and `Writer` objects with
+
+```
+devo_reader = ds.Reader(profile='example', credentials_path='/alternate/credentials/file')
+devo_writer = ds.Writer(profile='example', credentials_path='/alternate/credentials/file')
+```
+
+The `credentials_path` can be sepcified as either a string or a `pathlib.Path` object.
 
 It is not necessary to have credentials for both the `Reader` and the `Writer` in a profile.
 If you would like to us an Oauth token, that can be included in the profile was well
