@@ -21,7 +21,7 @@ setup(
     author='Nick Murphy',
     author_email='nick.murphy@devo.com',
     description='APIs for querying and loading data into Devo',
-    url='https://github.com/devods/devodsconnector.git',
+    url='https://github.com/DevoInc/python-ds-connector',
     python_requires='>=3.5',
     install_requires=requires,
     packages=find_packages()
