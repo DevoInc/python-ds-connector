@@ -1,6 +1,8 @@
 [![LICENSE](https://img.shields.io/dub/l/vibe-d.svg)](https://github.com/devods/devodsconnector/blob/master/LICENSE)
 ![python](https://img.shields.io/badge/python-3.5|3.6|3.7-blue.svg)
-![version](https://img.shields.io/badge/version-1.2.0-blue.svg)
+![version](https://img.shields.io/pypi/v/devodsconnector?label=version)
+
+
 # devodsconnector
 
 The Devo Data Science Connector is a python package for integrating data stored in Devo into a data science workflow. This package is built on top of the [Devo Python-SDK](https://github.com/DevoInc/python-sdk), a python package for querying and uploading data to Devo. Data can be pull from Devo into a variety of formats including pandas DataFrames.  In addition, random or population sampling can be applied to the queried dataset.  
@@ -12,7 +14,7 @@ The Connector also offers the ability to upload a variety of data formats back t
 The Devo DS Connector requires Python 3.5+
 
 ```
-pip install git+https://github.com/DevoInc/python-ds-connector.git
+pip install devodsconnector
 ```
 
 ## Usage
