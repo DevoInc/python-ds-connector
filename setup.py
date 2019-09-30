@@ -20,6 +20,8 @@ setup(
     version=about['__version__'],
     author='Nick Murphy',
     author_email='nick.murphy@devo.com',
+    license='MIT',
+    classifiers=["License :: OSI Approved :: MIT License"],
     description='APIs for querying and loading data into Devo',
     url='https://github.com/DevoInc/python-ds-connector',
     python_requires='>=3.5',
