@@ -36,7 +36,7 @@ class Reader(object):
         if credential_path is None:
                 self.credential_path = Path.home() / '.devo_credentials'
         else:
-            self.credential_path = Path(credential_path).resolve().expanduser()
+            self.credential_path = Path(credential_path).expanduser().resolve()
 
         if not (self.end_point and (self.oauth_token or self.jwt or (self.api_key and self.api_secret))):
             self._read_profile()
@@ -142,6 +142,7 @@ class Reader(object):
 
         def ts_func(t):
             dt = datetime.datetime.strptime(t.strip(), '%Y-%m-%d %H:%M:%S.%f')
+            dt = dt.replace(tzinfo=timezone.utc)
 
             if ts_format == 'datetime':
                 return dt
@@ -149,8 +150,6 @@ class Reader(object):
                 return dt.isoformat()
             elif ts_format == 'timestamp':
                 return dt.timestamp()
-            else:
-                raise Exception('ts_format must be one of: datetime, iso, or timestamp ')
         return ts_func
 
     def _make_type_map(self,ts_format):
