@@ -1,5 +1,5 @@
 import os
-import sys
+import ctypes
 import configparser
 import datetime
 from datetime import timezone
@@ -16,7 +16,7 @@ from devo.api import Client
 
 from .error_checking import check_status
 
-csv.field_size_limit(sys.maxsize)
+csv.field_size_limit(int(ctypes.c_ulong(-1).value // 2))
 warnings.simplefilter('always', UserWarning)
 
 
