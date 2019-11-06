@@ -24,7 +24,7 @@ class Reader(object):
 
     def __init__(self, profile='default', api_key=None, api_secret=None,
                        end_point=None, oauth_token=None, jwt=None,
-                       credential_path=None):
+                       credential_path=None, timeout=None, retries=1):
 
         self.profile = profile
         self.api_key = api_key
@@ -47,6 +47,9 @@ class Reader(object):
         self.client = Client(auth=dict(key=self.api_key,secret=self.api_secret,
                                        token=self.oauth_token,jwt=self.jwt),
                              address=self.end_point)
+
+        self.client.timeout = timeout
+        self.client.retries = retries
 
     def _read_profile(self):
         """
