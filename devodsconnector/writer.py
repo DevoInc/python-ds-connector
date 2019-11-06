@@ -1,6 +1,6 @@
 import os
 import configparser
-import sys
+import ctypes
 import socket
 import csv
 import datetime
@@ -13,7 +13,7 @@ from devo.sender import Sender
 
 import warnings
 
-csv.field_size_limit(sys.maxsize)
+csv.field_size_limit(int(ctypes.c_ulong(-1).value // 2))
 warnings.simplefilter('always', UserWarning)
 
 
