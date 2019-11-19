@@ -97,8 +97,8 @@ class Reader(object):
 
         type_dict = self._get_types(linq_query, start, ts_format)
 
-        result = self._query(linq_query, start, stop, mode = 'csv', stream = True)
-        result = self._decode_results(result)
+        response = self._query(linq_query, start, stop, mode = 'csv', stream = True)
+        result = self._decode_results(response)
         result = csv.reader(result)
 
         cols = next(result)
@@ -108,10 +108,14 @@ class Reader(object):
 
         type_list = [type_dict[c] for c in cols]
 
-        yield cols
+        try:
+            yield cols
 
-        for row in result:
-            yield [t(v) for t, v in zip(type_list, row)]
+            for row in result:
+                yield [t(v) for t, v in zip(type_list, row)]
+        except Exception as e:
+            response.close()
+            raise(e)
 
     def _query(self, linq_query, start, stop=None, mode='csv', stream=False, limit=None):
 
