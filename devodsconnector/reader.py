@@ -20,6 +20,21 @@ csv.field_size_limit(int(ctypes.c_ulong(-1).value // 2))
 warnings.simplefilter('always', UserWarning)
 
 
+
+
+class DSResults:
+    def __init__(self,res,results):
+        self.res = res
+        self.results = results
+    def __iter__(self):
+        return self.results
+    def __next__(self):
+        return next(self.results)
+    def close(self):
+        self.res.close()
+
+
+
 class Reader(object):
 
     def __init__(self, profile='default', api_key=None, api_secret=None,
@@ -84,34 +99,37 @@ class Reader(object):
         if output=='dataframe' and stop is None:
             raise Exception("DataFrame can't be build from continuous query")
 
-        results = self._stream(linq_query,start,stop,ts_format)
-        cols = next(results)
-
-        return getattr(self, f'_to_{output}')(results,cols)
-
-    def _stream(self, linq_query, start, stop, ts_format):
-        """
-        yields columns names then rows in lists with converted
-        types
-        """
-
         type_dict = self._get_types(linq_query, start, ts_format)
+        res = self._query(linq_query, start, stop, mode = 'csv', stream = True)
+        results = self._stream(res,type_dict)
 
-        result = self._query(linq_query, start, stop, mode = 'csv', stream = True)
-        result = self._decode_results(result)
+        cols = next(results)
+        results = getattr(self, f'_to_{output}')(results,cols)
+
+        if output == 'dataframe':
+            return results
+        else:
+            return DSResults(res,results)
+
+
+    def _stream(self,res,type_dict):
+
+        result = self._decode_results(res)
         result = csv.reader(result)
+        try:
+            cols = next(result)
+            type_list = [type_dict[c] for c in cols]
 
-        cols = next(result)
+            if len(cols) != len(type_dict):
+                raise Exception("Duplicate column names encountered, custom columns must be named")
 
-        if len(cols) != len(type_dict):
-            raise Exception("Duplicate column names encountered, custom columns must be named")
+            yield cols
 
-        type_list = [type_dict[c] for c in cols]
-
-        yield cols
-
-        for row in result:
-            yield [t(v) for t, v in zip(type_list, row)]
+            for row in result:
+                yield [t(v) for t, v in zip(type_list, row)]
+        except Exception as e:
+            res.close()
+            raise(e)
 
     def _query(self, linq_query, start, stop=None, mode='csv', stream=False, limit=None):
 
