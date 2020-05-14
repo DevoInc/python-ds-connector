@@ -100,7 +100,7 @@ class Reader(object):
             raise Exception("DataFrame can't be build from continuous query")
 
         type_dict = self._get_types(linq_query, start, ts_format)
-        res = self._query(linq_query, start, stop, mode = 'csv', stream = True)
+        res = self._query(linq_query, start, stop, mode='csv', stream=True)
         results = self._stream(res,type_dict)
 
         cols = next(results)
@@ -132,7 +132,9 @@ class Reader(object):
             raise(e)
 
     def _query(self, linq_query, start, stop=None, mode='csv', stream=False, limit=None):
-
+        if (getattr(start, 'tzinfo', 1) is None) or (getattr(stop, 'tzinfo', 1) is None):
+            warnings.warn('Naive date interpreted as UTC')
+            
         start = self._to_unix(start)
         stop = self._to_unix(stop)
 
@@ -232,7 +234,6 @@ class Reader(object):
             epoch = pd.to_datetime(date).timestamp()
         elif isinstance(date, (pd.Timestamp, datetime.datetime)):
             if date.tzinfo is None:
-                warnings.warn('Naive date interpreted as UTC')
                 epoch = date.replace(tzinfo=timezone.utc).timestamp()
             else:
                 epoch = date.timestamp()
