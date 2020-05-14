@@ -231,7 +231,11 @@ class Reader(object):
         elif type(date) == str:
             epoch = pd.to_datetime(date).timestamp()
         elif isinstance(date, (pd.Timestamp, datetime.datetime)):
-            epoch = date.replace(tzinfo=timezone.utc).timestamp()
+            if date.tzinfo is None:
+                warnings.warn('Naive date interpreted as UTC')
+                epoch = date.replace(tzinfo=timezone.utc).timestamp()
+            else:
+                epoch = date.timestamp()
         elif isinstance(date, (int,float)):
             epoch = date
         else:
