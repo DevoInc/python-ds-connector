@@ -39,7 +39,8 @@ class Reader(object):
 
     def __init__(self, profile='default', api_key=None, api_secret=None,
                        end_point=None, oauth_token=None, jwt=None,
-                       credential_path=None, timeout=None, retries=1):
+                       credential_path=None, timeout=None, retries=1,
+                       user=None,app_name=None):
 
         self.profile = profile
         self.api_key = api_key
@@ -66,6 +67,11 @@ class Reader(object):
         self.client.timeout = timeout
         self.client.retries = retries
 
+        if user:
+            self.client.config.set_user(user)
+        if app_name:
+            self.client.config.set_app_name(app_name)
+
     def _read_profile(self):
         """
         Read Devo API keys from a credentials file located
@@ -90,7 +96,7 @@ class Reader(object):
             elif self.end_point == 'EU':
                 self.end_point = 'https://apiv2-eu.devo.com/search/query'
 
-    def query(self, linq_query, start, stop=None, output='dict', ts_format='datetime'):
+    def query(self, linq_query, start, stop=None, output='dict', ts_format='datetime', comment=None):
 
         valid_outputs = ('dict', 'list', 'namedtuple', 'dataframe')
         if output not in valid_outputs:
@@ -100,7 +106,7 @@ class Reader(object):
             raise Exception("DataFrame can't be build from continuous query")
 
         type_dict = self._get_types(linq_query, start, ts_format)
-        res = self._query(linq_query, start, stop, mode = 'csv', stream = True)
+        res = self._query(linq_query, start, stop, mode='csv', stream=True, comment=comment)
         results = self._stream(res,type_dict)
 
         cols = next(results)
@@ -131,7 +137,9 @@ class Reader(object):
             res.close()
             raise(e)
 
-    def _query(self, linq_query, start, stop=None, mode='csv', stream=False, limit=None):
+    def _query(self, linq_query, start, stop=None, mode='csv', stream=False, limit=None, comment=None):
+        if (getattr(start, 'tzinfo', 1) is None) or (getattr(stop, 'tzinfo', 1) is None):
+            warnings.warn('Naive date interpreted as UTC')
 
         start = self._to_unix(start)
         stop = self._to_unix(stop)
@@ -142,7 +150,8 @@ class Reader(object):
 
         response = self.client.query(query=linq_query,
                                      dates=dates,
-                                     limit=limit)
+                                     limit=limit,
+                                     comment=comment)
 
         return response
 
@@ -231,7 +240,10 @@ class Reader(object):
         elif type(date) == str:
             epoch = pd.to_datetime(date).timestamp()
         elif isinstance(date, (pd.Timestamp, datetime.datetime)):
-            epoch = date.replace(tzinfo=timezone.utc).timestamp()
+            if date.tzinfo is None:
+                epoch = date.replace(tzinfo=timezone.utc).timestamp()
+            else:
+                epoch = date.timestamp()
         elif isinstance(date, (int,float)):
             epoch = date
         else:
