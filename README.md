@@ -44,7 +44,7 @@ for the EU is `'https://apiv2-eu.devo.com/search/query'`
 
 `linq_query`: Linq query to run against Devo as a string.
 
-`start`: The start time (in UTC) to run the Linq query on.  start may be specified as a string, a datetime object, pandas Timestamp, or as a unix timestamp in seconds.  Examples of valid strings are: `'2018-01-01'`,  `'Feb 10, 2019'`, `'2019-01-01 10:05:00'`, or `'2019-02-05T00:00:00'`. Note that strings will be converted by [pandas.to_datetime](https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.to_datetime.html).
+`start`: The start time to run the Linq query on. `start` may be specified as a string, a datetime object, pandas Timestamp, or as a unix timestamp in seconds.  Timezone aware datetimes and Timestamp objects will use the specified timezone when calculating the start time.  Naive datetimes and Timestamps as well as strings will be treated as UTC times. Examples of valid strings are: `'2018-01-01'`,  `'Feb 10, 2019'`, `'2019-01-01 10:05:00'`, or `'2019-02-05T00:00:00'`. Note that strings will be converted by [pandas.to_datetime](https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.to_datetime.html).
 
 `stop`: The end time (in UTC) to run the Linq query on. stop may be None or specified in the same way as start.  Set `stop` to `None` for a continuous query.
 
