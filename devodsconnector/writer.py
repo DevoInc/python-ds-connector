@@ -1,6 +1,6 @@
 import os
 import configparser
-import sys
+import ctypes
 import socket
 import csv
 import datetime
@@ -13,7 +13,7 @@ from devo.sender import Sender
 
 import warnings
 
-csv.field_size_limit(sys.maxsize)
+csv.field_size_limit(int(ctypes.c_ulong(-1).value // 2))
 warnings.simplefilter('always', UserWarning)
 
 
@@ -21,7 +21,7 @@ class Writer:
 
     def __init__(self, profile='default', key=None, crt=None,
                        chain=None, relay=None, port=443,
-                       credential_path=None):
+                       credential_path=None, **kwargs):
 
         self.profile = profile
         self.key = key
@@ -40,9 +40,12 @@ class Writer:
 
         if not all([self.key, self.crt, self.chain, self.relay]):
             raise Exception('Credentials and relay must be specified or in ~/.devo_credentials')
-
-        self.sender = Sender(dict(address=self.relay, port=self.port,
+        
+        config_dict = kwargs
+        config_dict.update(dict(address=self.relay, port=self.port,
                                   key=self.key, cert=self.crt,chain=self.chain))
+
+        self.sender = Sender(config_dict)
 
     def _read_profile(self):
 
