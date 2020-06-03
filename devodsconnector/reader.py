@@ -40,7 +40,7 @@ class Reader(object):
     def __init__(self, profile='default', api_key=None, api_secret=None,
                        end_point=None, oauth_token=None, jwt=None,
                        credential_path=None, timeout=None, retries=1,
-                       user=None,app_name=None, **kwargs):
+                       verify=True, user=None,app_name=None, **kwargs):
 
         self.profile = profile
         self.api_key = api_key
@@ -60,12 +60,16 @@ class Reader(object):
         if not (self.end_point and (self.oauth_token or self.jwt or (self.api_key and self.api_secret))):
             raise Exception('End point and either API keys or OAuth Token must be specified or in ~/.devo_credentials')
 
-        self.client = Client(auth=dict(key=self.api_key,secret=self.api_secret,
-                                       token=self.oauth_token,jwt=self.jwt),
-                             address=self.end_point, **kwargs)
+        config = kwargs
+        config.update({
+            'auth': {'key': self.api_key, 'secret': self.api_secret, 'token': self.oauth_token, 'jwt': self.jwt},
+            'address': self.end_point
+        })
+        self.client = Client(config=config)
 
         self.client.timeout = timeout
         self.client.retries = retries
+        self.client.verify = verify
 
         if user:
             self.client.config.set_user(user)
