@@ -220,7 +220,7 @@ In addition to loading the data, the `Writer` generates a Linq query that can be
 ## Credential File
 
 A credentials files can be used to store credentials for both the `Reader` and the `Writer` as well as end points and relays.
-The default path for the credentials is `~/.devo_credentials`, but any location can be specified with `credentials_path={credentials locations}` when creating a `Reader` or `Writer`.
+The default path for the credentials is `~/.devo_credentials`, but any location can be specified with `credential_path={credentials locations}` when creating a `Reader` or `Writer`.
 
 #### Basic example
 
