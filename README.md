@@ -38,6 +38,13 @@ The API key and secret as well as the OAuth token can be found and generated fro
 The `end_point` for the US is `'https://apiv2-us.devo.com/search/query'` and
 for the EU is `'https://apiv2-eu.devo.com/search/query'`
 
+###### Additional Arguments
+
+`user` and `app_name` can be specified optionally. If supplied, these values are added to the query pragma and can be used to trach who or what process is running a query  
+
+
+The devodsconnector Reader supports all of the additional configuration supported by the `Client` and `ClientConfig` from the [Devo Python SDK](https://github.com/DevoInc/python-sdk/blob/master/docs/api/api.md)
+
 #### Methods
 
 `Reader.query(linq_query, start, stop=None, output='dict', ts_format='datetime')`  
