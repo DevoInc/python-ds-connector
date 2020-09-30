@@ -255,8 +255,8 @@ devo_writer = ds.Writer(profile='example')
 If the credentials file was located at `'/alternate/credentials/file'` we could create the create `Reader` and `Writer` objects with
 
 ```
-devo_reader = ds.Reader(profile='example', credentials_path='/alternate/credentials/file')
-devo_writer = ds.Writer(profile='example', credentials_path='/alternate/credentials/file')
+devo_reader = ds.Reader(profile='example', credential_path='/alternate/credentials/file')
+devo_writer = ds.Writer(profile='example', credential_path='/alternate/credentials/file')
 ```
 
 The `credentials_path` can be sepcified as either a string or a `pathlib.Path` object.
