@@ -259,7 +259,7 @@ devo_reader = ds.Reader(profile='example', credential_path='/alternate/credentia
 devo_writer = ds.Writer(profile='example', credential_path='/alternate/credentials/file')
 ```
 
-The `credentials_path` can be sepcified as either a string or a `pathlib.Path` object.
+The `credential_path` can be sepcified as either a string or a `pathlib.Path` object.  Internally, `credential_path` will be converted to a `pathlib.Path` object. The pathlib documentation can be found [here](https://docs.python.org/3/library/pathlib.html#concrete-paths) and may be especially useful to Windows users specifying a credential path. 
 
 It is not necessary to have credentials for both the `Reader` and the `Writer` in a profile.
 If you would like to us an Oauth token, that can be included in the profile was well
