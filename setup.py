@@ -12,7 +12,7 @@ requires = [
     'pandas>=0.23.4',
     'requests>=2.19.1',
     'scipy>=1.1.0',
-    'devo-sdk>=3.0.3, <=3.2.5'
+    'devo-sdk>=3.4.1'
 ]
 
 setup(
