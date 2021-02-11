@@ -1,10 +1,11 @@
 import os
+import struct, socket
 import ctypes
 import configparser
 import datetime
 from datetime import timezone
 import json
-import csv
+import csv 
 import warnings
 from pathlib import Path
 from collections import namedtuple, defaultdict
@@ -20,8 +21,6 @@ csv.field_size_limit(int(ctypes.c_ulong(-1).value // 2))
 warnings.simplefilter('always', UserWarning)
 
 
-
-
 class DSResults:
     def __init__(self,res,results):
         self.res = res
@@ -32,6 +31,8 @@ class DSResults:
         return next(self.results)
     def close(self):
         self.res.close()
+
+
 
 
 
@@ -100,6 +101,7 @@ class Reader(object):
             elif self.end_point == 'EU':
                 self.end_point = 'https://apiv2-eu.devo.com/search/query'
 
+
     def query(self, linq_query, start, stop=None, output='dict', ts_format='datetime', comment=None):
 
         valid_outputs = ('dict', 'list', 'namedtuple', 'dataframe')
@@ -109,12 +111,18 @@ class Reader(object):
         if output=='dataframe' and stop is None:
             raise Exception("DataFrame can't be build from continuous query")
 
-        type_dict = self._get_types(linq_query, start, ts_format)
-        res = self._query(linq_query, start, stop, mode='csv', stream=True, comment=comment)
-        results = self._stream(res,type_dict)
+        res = self._query(linq_query, start, stop, mode='json/simple/compact', stream=True, comment=comment)
 
-        cols = next(results)
+        ### will this always load in correct order? ordering dict is feature for py 3.7 ?
+        col_data = json.loads(next(res).decode())['m']
+        cols = list(col_data.keys())
+
+        type_map = self._make_type_map(ts_format)
+        type_list = [type_map[v['type']] for c,v in col_data.items()]
+
+        results = self._stream(res,type_list)
         results = getattr(self, f'_to_{output}')(results,cols)
+
 
         if output == 'dataframe':
             return results
@@ -122,24 +130,41 @@ class Reader(object):
             return DSResults(res,results)
 
 
-    def _stream(self,res,type_dict):
-
-        result = self._decode_results(res)
-        result = csv.reader(result)
+    def _stream(self, res, type_list):
         try:
-            cols = next(result)
-            type_list = [type_dict[c] for c in cols]
-
-            if len(cols) != len(type_dict):
-                raise Exception("Duplicate column names encountered, custom columns must be named")
-
-            yield cols
-
-            for row in result:
-                yield [t(v) for t, v in zip(type_list, row)]
+            for row in res:
+                if row:
+                    decoded_row = json.loads(row.decode())['d']
+                    yield [t(v) for t, v in zip(type_list, decoded_row)]
         except Exception as e:
             res.close()
             raise(e)
+
+
+    def _make_type_map(self,ts_format):
+
+        funcs = {
+                'timestamp': self.make_ts_func(ts_format),
+                'ipv4': lambda i: socket.inet_ntoa(struct.pack('!L', i)),
+                'json': json.loads
+
+               }
+
+        decorated_funcs = {t: self._null_decorator(f) for t, f in funcs.items()}
+
+
+        return defaultdict(lambda: (lambda x : x), decorated_funcs)
+
+
+    @staticmethod
+    def _null_decorator(f):
+        def null_f(v):
+            if v is None:
+                return None
+            else:
+                return f(v)
+        return null_f
+
 
     def _query(self, linq_query, start, stop=None, mode='csv', stream=False, limit=None, comment=None):
         if (getattr(start, 'tzinfo', 1) is None) or (getattr(stop, 'tzinfo', 1) is None):
@@ -161,70 +186,24 @@ class Reader(object):
 
 
     @staticmethod
-    def _null_decorator(f):
-        def null_f(v):
-            if v == '':
-                return None
-            else:
-                return f(v)
-        return null_f
-
-    @staticmethod
     def make_ts_func(ts_format):
         if ts_format not in ('datetime', 'iso', 'timestamp'):
             raise Exception('ts_format must be one of: datetime, iso, or timestamp ')
 
         def ts_func(t):
-            dt = datetime.datetime.strptime(t.strip(), '%Y-%m-%d %H:%M:%S.%f')
+            if ts_format == 'timestamp':
+                return t
+
+            dt = datetime.datetime.utcfromtimestamp(t / 1000)
             dt = dt.replace(tzinfo=timezone.utc)
 
             if ts_format == 'datetime':
                 return dt
             elif ts_format == 'iso':
                 return dt.isoformat()
-            elif ts_format == 'timestamp':
-                return dt.timestamp()
+
         return ts_func
 
-    def _make_type_map(self,ts_format):
-
-        funcs = {
-                'timestamp': self.make_ts_func(ts_format),
-                'str': str,
-                'int8': int,
-                'int4': int,
-                'float8': float,
-                'float4': float,
-                'bool': lambda b: b == 'true'
-               }
-
-        decorated_funcs = {t: self._null_decorator(f) for t, f in funcs.items()}
-        decorated_str = self._null_decorator(str)
-
-        return defaultdict(lambda: decorated_str, decorated_funcs)
-
-    def _get_types(self,linq_query,start,ts_format):
-        """
-        Gets types of each column of submitted
-        """
-        type_map = self._make_type_map(ts_format)
-
-        # so we don't have  stop ts in future as required by API V2
-        stop = self._to_unix(start)
-        start = stop - 1
-
-        response = self._query(linq_query, start=start, stop=stop, mode='json/compact', limit=1)
-
-        try:
-            data = json.loads(response)
-            check_status(data)
-        except ValueError:
-            raise Exception('API V2 response error')
-
-        col_data = data['object']['m']
-        type_dict = { c:type_map[v['type']] for c,v in col_data.items() }
-
-        return type_dict
 
     @staticmethod
     def _to_unix(date, milliseconds=False):
@@ -258,21 +237,7 @@ class Reader(object):
 
         return int(epoch)
 
-    @staticmethod
-    def _decode_results(r):
-        r = iter(r)
 
-        # catch error not reported for json/compact
-        first = next(r)
-        try:
-            data = json.loads(first)
-            check_status(data)
-        except ValueError:
-            pass
-
-        yield first.decode('utf-8').strip()  # APIV2 adding space to first line of aggregates
-        for l in r:
-            yield l.decode('utf-8')
 
     @staticmethod
     def _to_list(results,cols):
@@ -292,6 +257,8 @@ class Reader(object):
     @staticmethod
     def _to_dataframe(results,cols):
         return pd.DataFrame(results, columns=cols).fillna(np.nan)
+
+
 
     def randomSample(self,linq_query,start,stop,sample_size):
 
