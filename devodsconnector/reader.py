@@ -5,7 +5,7 @@ import configparser
 import datetime
 from datetime import timezone
 import json
-import csv 
+import csv
 import warnings
 from pathlib import Path
 from collections import namedtuple, defaultdict
@@ -137,6 +137,10 @@ class Reader(object):
                     decoded_row = json.loads(row.decode())['d']
                     yield [t(v) for t, v in zip(type_list, decoded_row)]
         except Exception as e:
+            try:
+                print(row)
+            except Exception:
+                pass
             res.close()
             raise(e)
 
