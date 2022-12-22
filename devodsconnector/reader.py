@@ -114,7 +114,10 @@ class Reader(object):
         res = self._query(linq_query, start, stop, mode='json/simple/compact', stream=True, comment=comment)
 
         ### will this always load in correct order? ordering dict is feature for py 3.7 ?
-        col_data = json.loads(next(res).decode())['m']
+        tmp = next(res)
+        if not isinstance(tmp, str):
+            tmp = tmp.decode()
+        col_data = json.loads(tmp)['m']
         cols = list(col_data.keys())
 
         type_map = self._make_type_map(ts_format)
@@ -134,7 +137,9 @@ class Reader(object):
         try:
             for row in res:
                 if row:
-                    decoded_row = json.loads(row.decode())['d']
+                    if not isinstance(row, str):
+                        row = row.decode()
+                    decoded_row = json.loads(row)['d']
                     yield [t(v) for t, v in zip(type_list, decoded_row)]
         except Exception as e:
             try:
