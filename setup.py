@@ -24,7 +24,7 @@ setup(
     classifiers=["License :: OSI Approved :: MIT License"],
     description='APIs for querying and loading data into Devo',
     url='https://github.com/DevoInc/python-ds-connector',
-    python_requires='>=3.5',
+    python_requires='>=3.7',
     install_requires=requires,
     packages=find_packages()
 )
