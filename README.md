@@ -1,5 +1,5 @@
 [![LICENSE](https://img.shields.io/dub/l/vibe-d.svg)](https://github.com/devods/devodsconnector/blob/master/LICENSE)
-![python](https://img.shields.io/badge/python-3.5|3.6|3.7-blue.svg)
+![python](https://img.shields.io/badge/python-3.7|3.8|3.9-blue.svg)
 ![version](https://img.shields.io/pypi/v/devodsconnector?label=version)
 
 
@@ -11,7 +11,7 @@ The Connector also offers the ability to upload a variety of data formats back t
 
 ## Installing
 
-The Devo DS Connector requires Python 3.5+
+The Devo DS Connector requires Python 3.7+
 
 ```
 pip install devodsconnector
