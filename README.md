@@ -17,6 +17,9 @@ The Devo DS Connector requires Python 3.5+
 pip install devodsconnector
 ```
 
+Version 3.4.1 or greater of the Devo Python-SDK is required, but version 5.0.6 or greater is recommended
+
+
 ## Usage
 
 `import devodsconnector as ds`
